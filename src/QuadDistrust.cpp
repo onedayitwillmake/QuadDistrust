@@ -20,7 +20,7 @@
 #include "cinder/Rand.h"
 #include "cinder/MayaCamUI.h"
 
-class HelloWorldApp : public ci::app::AppBasic {
+class QuadDistrustApp : public ci::app::AppBasic {
 public:
 	void prepareSettings( ci::app::AppBasic::Settings *settings );
 	void setup();
@@ -44,12 +44,12 @@ public:
 	ci::TriMesh*	_particleMesh;
 };
 
-void HelloWorldApp::prepareSettings( ci::app::AppBasic::Settings *settings )
+void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 {
 	settings->setWindowSize( 800, 600 );
 }
 
-void HelloWorldApp::setup()
+void QuadDistrustApp::setup()
 {
 	_cubeRotation.setToIdentity();
 
@@ -81,13 +81,13 @@ glVertex3f( 1.0f,-1.0f, 0.0f);			// Right And Down One Unit (Bottom Right)
 glVertex3f(-1.0f,-1.0f, 0.0f);			// Left And Down One Unit (Bottom Left)
 glEnd();
  */
-void HelloWorldApp::setupQuadSprites()
+void QuadDistrustApp::setupQuadSprites()
 {
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 30.0f;
-	float count = 10000;
+	float quadSize = 3.0f;
+	float count = 100000;
 
 	float quadNoiseAmount		 = 0;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
@@ -105,11 +105,12 @@ void HelloWorldApp::setupQuadSprites()
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
+		pos += ci::Rand::randVec3f() * 50;
 
 		float rate = (float)theta / (float)count;
 
 //		std::cout << rate << std::endl;
-		ci::ColorA aColor( ci::CM_HSV, fabs(y*0.4)+0.6, 1.0f, 0.5f, 1.0f );
+		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
 
 		// Define v1,v2,v3,v4 by taking that position and moving outward 1 "quadSize"
 		ci::Vec3f v1 = pos;
@@ -128,7 +129,7 @@ void HelloWorldApp::setupQuadSprites()
 	}
 }
 
-void HelloWorldApp::setupCamera()
+void QuadDistrustApp::setupCamera()
 {
 	// Camera perspective propertie
 	float cameraFOV			= 65.0f;
@@ -149,7 +150,7 @@ void HelloWorldApp::setupCamera()
 	_mayaCam.setCurrentCam( cam );
 }
 
-void HelloWorldApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
+void QuadDistrustApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
 {
 	mesh.appendVertex( P0 );
 	mesh.appendColorRGBA( color );
@@ -168,39 +169,39 @@ void HelloWorldApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const
 	mesh.appendTriangle( vert3, vert1, vert2 );
 }
 
-void HelloWorldApp::mouseDown( ci::app::MouseEvent event )
+void QuadDistrustApp::mouseDown( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDown( event.getPos() );
 }
 
-void HelloWorldApp::mouseDrag( ci::app::MouseEvent event )
+void QuadDistrustApp::mouseDrag( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
 }
 
-void HelloWorldApp::mouseMove( ci::app::MouseEvent event )
+void QuadDistrustApp::mouseMove( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
 }
 
-void HelloWorldApp::mouseUp( ci::app::MouseEvent event )
+void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDown( event.getPos() );
 }
 
-void HelloWorldApp::resize( ci::app::ResizeEvent event )
+void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1,  1000*10 );
+	cam.setPerspective( 90,  event.getAspectRatio(), 1,  1000*10 );
 	_mayaCam.setCurrentCam( cam );
 }
 
-void HelloWorldApp::update()
+void QuadDistrustApp::update()
 {
 	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
 }
 
-void HelloWorldApp::draw()
+void QuadDistrustApp::draw()
 {
 	// clear out the window with black
 	ci::gl::clear( ci::Color( 0, 0, 0 ) );
@@ -220,16 +221,16 @@ void HelloWorldApp::draw()
 //	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
 //	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(100.0f, 100.0f), 0.0f, mRight, mUp);
 
-	// Draw floor plane
-	float floorSize = 2000.0f;
-	_texture.enableAndBind();
-	glBegin(GL_QUADS);
-	glTexCoord2f(0.0f,1.0f); glVertex3f(-floorSize, 0.0f, floorSize);
-	glTexCoord2f(1.0f,1.0f); glVertex3f( floorSize, 0.0f, floorSize);
-	glTexCoord2f(1.0f,0.0f); glVertex3f( floorSize, 0.0f,-floorSize);
-	glTexCoord2f(0.0f,0.0f); glVertex3f(-floorSize, 0.0f,-floorSize);
-	glEnd();
-	_texture.disable();
+//	// Draw floor plane
+//	float floorSize = 2000.0f;
+//	_texture.enableAndBind();
+//	glBegin(GL_QUADS);
+//	glTexCoord2f(0.0f,1.0f); glVertex3f(-floorSize, 0.0f, floorSize);
+//	glTexCoord2f(1.0f,1.0f); glVertex3f( floorSize, 0.0f, floorSize);
+//	glTexCoord2f(1.0f,0.0f); glVertex3f( floorSize, 0.0f,-floorSize);
+//	glTexCoord2f(0.0f,0.0f); glVertex3f(-floorSize, 0.0f,-floorSize);
+//	glEnd();
+//	_texture.disable();
 }
 
-CINDER_APP_BASIC( HelloWorldApp, ci::app::RendererGl )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(6) )
