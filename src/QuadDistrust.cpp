@@ -88,7 +88,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 20.0f;
+	float quadSize = 100.0f;
 	float count = 1;
 
 	float quadNoiseAmount		 = 0;
@@ -108,6 +108,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
 		pos += ci::Rand::randVec3f() * 50;
+		pos = ci::Vec3f::zero();
 
 		float rate = (float)theta / (float)count;
 
@@ -131,19 +132,96 @@ void QuadDistrustApp::setupQuadSprites()
 	}
 
 
-	ci::gl::VboMesh::Layout layout = ci::gl::VboMesh::Layout();
+	ci::gl::VboMesh::Layout layout;
+	layout.setStaticIndices();
+	layout.setDynamicColorsRGBA();
 	layout.setStaticPositions();
+
+	int vertCount = 24;
+	int quadCount = 6;
+	_particleVBO = ci::gl::VboMesh(vertCount, quadCount * 4, layout, GL_QUADS);
+
+	std::vector<uint32_t> indices;
+	int i=0;
+	while(i < 24){
+	    indices.push_back(i);
+	    i++;
+	}
+
+	_particleVBO.bufferIndices(indices);
+
+	std::vector<ci::Vec3f> positions;
+	positions.push_back(ci::Vec3f(100,  200,  1));
+	positions.push_back(ci::Vec3f( 200,  200,  1));
+	positions.push_back(ci::Vec3f( 200, 100,  1));
+	positions.push_back(ci::Vec3f(100, 100,  1));
+
+	positions.push_back(ci::Vec3f( 200,  200,  1));
+	positions.push_back(ci::Vec3f( 200,  200, 100));
+	positions.push_back(ci::Vec3f( 200, 100, 100));
+	positions.push_back(ci::Vec3f( 200, 100,  1));
+
+	positions.push_back(ci::Vec3f( 200,  200, 100));
+	positions.push_back(ci::Vec3f(100,  200, 100));
+	positions.push_back(ci::Vec3f(100, 100, 100));
+	positions.push_back(ci::Vec3f( 200, 100, 100));
+
+	positions.push_back(ci::Vec3f(100,  200, 100));
+	positions.push_back(ci::Vec3f(100,  200,  1));
+	positions.push_back(ci::Vec3f(100, 100,  1));
+	positions.push_back(ci::Vec3f(100, 100, 100));
+
+	positions.push_back(ci::Vec3f(100,  200, 100));
+	positions.push_back(ci::Vec3f( 200,  200, 100));
+	positions.push_back(ci::Vec3f( 200,  200,  1));
+	positions.push_back(ci::Vec3f(100,  200,  1));
+
+	positions.push_back(ci::Vec3f(100, 100, 100));
+	positions.push_back(ci::Vec3f( 200, 100, 100));
+	positions.push_back(ci::Vec3f( 200, 100,  1));
+	positions.push_back(ci::Vec3f(100, 100,  1));
+
+	// now we can buffer positions
+	_particleVBO.bufferPositions(positions);
+
+//#define Vector3 ci::Vec3f
+//	std::vector<size_t> meshIndices = _particleMesh->getIndices();
+//	std::vector<ci::Vec3f> meshVertices = _particleMesh->getVertices();
+//	std::vector<ci::Vec3f> meshNormals;
+//	meshNormals.reserve( meshVertices.size() );
+//
+//	for(int i = 0; i < meshIndices.size(); i += 3)
+//	{
+//		ci::Vec3f v0 = meshVertices[meshIndices[i]];
+//		ci::Vec3f v1 = meshVertices[meshIndices[i+1]];
+//		ci::Vec3f v2 = meshVertices[meshIndices[i+2]];
+//
+//		ci::Vec3f normal = (v2 - v0).cross(v1 - v0); //This is the normal of the triangle if that's all you're interested in.
+//		normal.safeNormalize();
+//
+//
+//		meshNormals[meshIndices[i]] += normal;
+//		meshNormals[meshIndices[i+1]] += normal;
+//		meshNormals[meshIndices[i+2]] += normal;
+//	}
+//	for(int i = 0; i < meshVertices.size(); i++) {
+//		ci::Vec3f finalNormal = meshNormals[i].normalized();
+//		_particleMesh->appendNormal( finalNormal );
+//	}
+//
+//	ci::gl::VboMesh::Layout layout = ci::gl::VboMesh::Layout();
+//	layout.setStaticPositions();
 //	layout.setStaticColorsRGBA();
-
-	_particleVBO = ci::gl::VboMesh( *_particleMesh );
-//	mesh = ci::gl::VboMesh( 24, 20, layout, GL_TRIANGLES );
-
+//
+//	_particleVBO = ci::gl::VboMesh( *_particleMesh );
 }
+
+
 
 void QuadDistrustApp::setupCamera()
 {
 	// Camera perspective propertie
-	float cameraFOV			= 65.0f;
+	float cameraFOV			= 60.0f;
 	float cameraNear		= 1.0f;
 	float cameraFar			= 50000000.0f;
 
@@ -163,21 +241,35 @@ void QuadDistrustApp::setupCamera()
 
 void QuadDistrustApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
 {
+//	ci::Vec3f u = P3 - P0;
+//	ci::Vec3f v = P2 - P0;
+//	ci::Vec3f surfaceNormal = u.cross(v);
+//	surfaceNormal.safeNormalize();
+//
+//	std::cout << surfaceNormal << std::endl;
+
 	mesh.appendVertex( P0 );
 	mesh.appendColorRGBA( color );
+//	mesh.appendNormal( surfaceNormal );
+
 	mesh.appendVertex( P1 );
 	mesh.appendColorRGBA( color );
+//	mesh.appendNormal( surfaceNormal );
+
 	mesh.appendVertex( P2 );
 	mesh.appendColorRGBA( color );
+//	mesh.appendNormal( surfaceNormal );
+
 	mesh.appendVertex( P3 );
 	mesh.appendColorRGBA( color );
+//	mesh.appendNormal( surfaceNormal );
 
 	int vert0 = mesh.getNumVertices() - 4;
 	int vert1 = mesh.getNumVertices() - 1;
 	int vert2 = mesh.getNumVertices() - 2;
 	int vert3 = mesh.getNumVertices() - 3;
-	mesh.appendTriangle( vert0, vert1, vert3 );
-	mesh.appendTriangle( vert3, vert1, vert2 );
+	mesh.appendTriangle( vert0, vert3, vert1 );
+	mesh.appendTriangle( vert3, vert2, vert1 );
 }
 
 void QuadDistrustApp::mouseDown( ci::app::MouseEvent event )
@@ -203,7 +295,7 @@ void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 90,  event.getAspectRatio(), 1,  1000*10 );
+	cam.setPerspective( 60,  event.getAspectRatio(), 1,  1000*10 );
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -226,8 +318,20 @@ void QuadDistrustApp::draw()
 
 
 	ci::gl::enableAlphaBlending();
-//	ci::gl::draw( _particleVBO );
-	ci::gl::draw( *_particleMesh );
+
+	ci::gl::draw( _particleVBO );
+//	ci::gl::draw( *_particleMesh );
+
+
+	std::vector<ci::Vec3f> meshVertices = _particleMesh->getVertices();
+	std::vector<ci::Vec3f> meshNormals = _particleMesh->getNormals();
+	for( size_t i = 3; i < meshNormals.size(); i+=4 )
+	{
+		float t = 0.5f;
+		ci::Vec3f midPoint = ci::Vec3f( (1.0f-t) * (meshVertices[i-2]) + t*(meshVertices[i]) );
+		ci::Vec3f normal = meshNormals[i]*10;
+		ci::gl::drawVector( ci::Vec3f::zero(), normal );
+	}
 
 //	ci::Vec3f mRight, mUp;
 //	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
@@ -245,4 +349,4 @@ void QuadDistrustApp::draw()
 //	_texture.disable();
 }
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(2) )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl )
