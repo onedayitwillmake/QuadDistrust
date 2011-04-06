@@ -10,15 +10,16 @@
  * Mario Gonzalez
  * http://onedayitwillmake
  */
-#include "cinder/app/AppBasic.h"
-#include "cinder/gl/gl.h"
-#include "cinder/app/Renderer.h"
-#include "cinder/Surface.h"
-#include "cinder/gl/Texture.h"
 #include "cinder/Camera.h"
 #include "cinder/TriMesh.h"
 #include "cinder/Rand.h"
 #include "cinder/MayaCamUI.h"
+#include "cinder/Surface.h"
+#include "cinder/app/AppBasic.h"
+#include "cinder/app/Renderer.h"
+#include "cinder/gl/gl.h"
+#include "cinder/gl/Texture.h"
+#include "cinder/gl/Vbo.h"
 
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
@@ -38,10 +39,11 @@ public:
 	void addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
 
 	// Draw a cube (
-	ci::Matrix44f	_cubeRotation;
-	ci::gl::Texture	_texture;
-	ci::MayaCamUI	_mayaCam;
-	ci::TriMesh*	_particleMesh;
+	ci::Matrix44f		_cubeRotation;
+	ci::gl::Texture		_texture;
+	ci::MayaCamUI		_mayaCam;
+	ci::TriMesh*		_particleMesh;
+	ci::gl::VboMesh		_particleVBO;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
@@ -86,8 +88,8 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 3.0f;
-	float count = 100000;
+	float quadSize = 20.0f;
+	float count = 1;
 
 	float quadNoiseAmount		 = 0;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
@@ -127,6 +129,15 @@ void QuadDistrustApp::setupQuadSprites()
 
 		addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 	}
+
+
+	ci::gl::VboMesh::Layout layout = ci::gl::VboMesh::Layout();
+	layout.setStaticPositions();
+//	layout.setStaticColorsRGBA();
+
+	_particleVBO = ci::gl::VboMesh( *_particleMesh );
+//	mesh = ci::gl::VboMesh( 24, 20, layout, GL_TRIANGLES );
+
 }
 
 void QuadDistrustApp::setupCamera()
@@ -208,13 +219,14 @@ void QuadDistrustApp::draw()
 	ci::gl::enableDepthRead();
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 
-	glPushMatrix();
-		ci::gl::multModelView( _cubeRotation );
-		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f( 2.0f, 2.0f, 2.0f ) );
-	glPopMatrix();
+//	glPushMatrix();
+//		ci::gl::multModelView( _cubeRotation );
+//		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f( 2.0f, 2.0f, 2.0f ) );
+//	glPopMatrix();
 
 
 	ci::gl::enableAlphaBlending();
+//	ci::gl::draw( _particleVBO );
 	ci::gl::draw( *_particleMesh );
 
 //	ci::Vec3f mRight, mUp;
@@ -233,4 +245,4 @@ void QuadDistrustApp::draw()
 //	_texture.disable();
 }
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(6) )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(2) )
