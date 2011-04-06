@@ -4,13 +4,13 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../src/HelloEclipse.cpp 
+../src/QuadDistrust.cpp 
 
 OBJS += \
-./src/HelloEclipse.o 
+./src/QuadDistrust.o 
 
 CPP_DEPS += \
-./src/HelloEclipse.d 
+./src/QuadDistrust.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
