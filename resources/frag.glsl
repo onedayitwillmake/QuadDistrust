@@ -1,20 +1,28 @@
 varying vec3 normal;
-varying vec3 vertex_to_light_vector;
+varying vec4 pos;
 
-void main()
-{
-	// Defining The Material Colors
-//	const vec4 AmbientColor = vec4(0.1, 0.0, 0.0, 1.0);
-//	const vec4 DiffuseColor = vec4(1.0, 0.0, 0.0, 1.0);
+void main() {
+  vec4 color = gl_FrontMaterial.diffuse;
+  vec4 matspec = gl_FrontMaterial.specular;
+  float shininess = gl_FrontMaterial.shininess;
+  vec4 lightspec = gl_LightSource[0].specular;
+  vec4 lpos = gl_LightSource[0].position;
+  vec4 s = -normalize(pos-lpos); 
 
-	// Scaling The Input Vector To Length 1
-//	vec3 normalized_normal = normalize(normal);
-//	vec3 normalized_vertex_to_light_vector = normalize(vertex_to_light_vector);
+  vec3 light = s.xyz;
+  vec3 n = normalize(normal);
+  vec3 r = -reflect(light, n);
+  r = normalize(r);
+  vec3 v = -pos.xyz;
+  v = normalize(v);
+    
+  vec4 diffuse  = color * max(0.0, dot(n, s.xyz)) *             gl_LightSource[0].diffuse;
+  vec4 specular;
+  if (shininess != 0.0) {
+    specular = lightspec * matspec * pow(max(0.0,                 dot(r, v)), shininess);
+  } else {
+    specular = vec4(0.0, 0.0, 0.0, 0.0);
+  }
 
-	// Calculating The Diffuse Term And Clamping It To [0;1]
-//	float DiffuseTerm = clamp(dot(normal, vertex_to_light_vector), 0.0, 1.0);
-
-	// Calculating The Final Color
-//	gl_FragColor = AmbientColor + DiffuseColor * DiffuseTerm;
-	gl_FragColor = vec4(1.0, 1.0, 0.0, 1.0);
+  gl_FragColor = gl_FrontMaterial.ambient + diffuse + specular + gl_FrontMaterial.emission;
 }

@@ -26,6 +26,14 @@
 #include "ZoaDebugFunctions.h"
 #include "Resources.h"
 
+GLfloat no_mat[]			= { 0.0, 0.0, 0.0, 1.0 };
+GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
+GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
+GLfloat mat_specular[]		= { 1.0, 1.0, 1.0, 1.0 };
+GLfloat mat_emission[]		= { 0.4, 0.7, 1.0, 0.0 };
+GLfloat no_shininess[]		= { 0.0 };
+GLfloat mat_shininess[]		= { 128.0 };
+
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
 	void prepareSettings( ci::app::AppBasic::Settings *settings );
@@ -38,6 +46,7 @@ public:
 	void	mouseMove( ci::app::MouseEvent event );
 	void	mouseDrag( ci::app::MouseEvent event );
 	void	mouseUp( ci::app::MouseEvent event );
+	void 	keyDown( ci::app::KeyEvent event );
 
 	void update();
 	void draw();
@@ -51,6 +60,20 @@ public:
 	ci::TriMesh*		_particleMesh;
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
+
+	float		mCounter;
+	float		mouseX;
+	float		mouseY;
+	bool		mMOUSEDOWN;
+
+	ci::Vec3f		mMouseLoc;
+
+	bool		mDIFFUSE;
+	bool		mAMBIENT;
+	bool		mSPECULAR;
+	bool		mEMISSIVE;
+	bool		mSHADER;
+	float		mDirectional;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
@@ -90,16 +113,29 @@ void QuadDistrustApp::setup()
 	}
 
 //	// GL Stuff
-	GLfloat LightAmbient[]  = { 0.5f, 0.5f,  0.5f, 1.0f };
-	GLfloat LightDiffuse[]  = { 1.0f, 1.0f,  1.0f, 1.0f };
-	GLfloat LightPosition[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-	glLightfv( GL_LIGHT0, GL_AMBIENT,  LightAmbient );
-	glLightfv( GL_LIGHT0, GL_DIFFUSE,  LightDiffuse );
-	glLightfv( GL_LIGHT0, GL_POSITION, LightPosition );
-	glEnable( GL_LIGHT0 );
-	glEnable( GL_LIGHTING );
+	mCounter		= 0.0f;
+	mMouseLoc = ci::Vec3f::zero();
+
+
+		mMOUSEDOWN		= false;
+
+		mDIFFUSE		= true;
+		mAMBIENT		= true;
+		mSPECULAR		= true;
+		mSHADER			= true;
+		mEMISSIVE		= false;
+
+		mDirectional	= 1.0f;
+
+
+	mMouseLoc = ci::Vec3f::zero();
+
+	glDisable( GL_TEXTURE_2D );
+
+	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
+	ci::gl::enableAlphaBlending();
 //
 //	mAngle = 0.0f;
 }
@@ -119,10 +155,10 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 20.0f;
-	float count = 1000;
+	float quadSize = 10.0f;
+	float count = 10000;
 
-	float quadNoiseAmount		 = 2;
+	float quadNoiseAmount		 = 5;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
@@ -138,7 +174,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
-//		pos += ci::Rand::randVec3f() * 50;
+		pos += ci::Rand::randVec3f() * 50;
 
 		float rate = (float)theta / (float)count;
 
@@ -275,6 +311,42 @@ void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 	_mayaCam.mouseDown( event.getPos() );
 }
 
+void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
+{
+	if( event.getChar() == 'd' || event.getChar() == 'D' ){
+		mDIFFUSE = ! mDIFFUSE;
+	}
+	else if( event.getChar() == 'a' || event.getChar() == 'A' ){
+		mAMBIENT = ! mAMBIENT;
+	}
+	else if( event.getChar() == 's' || event.getChar() == 'S' ){
+		mSPECULAR = ! mSPECULAR;
+	}
+	else if( event.getChar() == 'e' || event.getChar() == 'E' ){
+		mEMISSIVE = ! mEMISSIVE;
+	}
+	else if( event.getChar() == 'g' || event.getChar() == 'G' ){
+		mSHADER = ! mSHADER;
+	}
+	else if( event.getChar() == 'f' || event.getChar() == 'F' ){
+//		setFullScreen( ! isFullScreen() );
+	}
+	else if( event.getChar() == '/' || event.getChar() == '?' ){
+//		mInfoPanel.toggleState();
+	}
+	else if( event.getChar() == ',' || event.getChar() == '<' ){
+		mat_shininess[0] *= 0.5f;
+		if( mat_shininess[0] < 8.0f )
+			mat_shininess[0] = 8.0f;
+	}
+	else if( event.getChar() == '.' || event.getChar() == '>' ){
+		mat_shininess[0] *= 2.0f;
+		if( mat_shininess[0] > 128.0f )
+			mat_shininess[0] = 128.0f;
+	}
+}
+
+
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
@@ -284,6 +356,11 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
+	if( ! mMOUSEDOWN )
+		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
+	else
+		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
+
 	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
 	return;
 
@@ -326,8 +403,58 @@ void QuadDistrustApp::draw()
 {
 	// clear out the window with black
 	ci::gl::clear( ci::Color( 0, 0, 0 ) );
-	ci::gl::enableDepthRead();
 	ci::gl::setMatrices( _mayaCam.getCamera() );
+
+	glEnable( GL_LIGHTING );
+	glEnable( GL_LIGHT0 );
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 1000.0f ) ) * 0.2f;
+
+	GLfloat light_position[] = { mMouseLoc.x, mMouseLoc.y, mMouseLoc.z, mDirectional };
+	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f );
+	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
+	glLightf( GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00015f );
+
+//	ci::Vec3f dirFromLight	= ci::Rand::randVec3f() * 1000;
+//	float distFromLight	= dirFromLight.length();
+
+	if( mDIFFUSE ){
+		ci::ColorA color( ci::CM_HSV, 0.2f, 0.4f, 0.5f, 1.0f );
+		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
+	} else {
+		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
+	}
+
+
+	if( mAMBIENT ){
+		glMaterialfv( GL_FRONT, GL_AMBIENT,	mat_ambient );
+	} else {
+		glMaterialfv( GL_FRONT, GL_AMBIENT,	no_mat );
+	}
+
+
+	if( mSPECULAR ){
+		glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular );
+		glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess );
+	} else {
+		glMaterialfv( GL_FRONT, GL_SPECULAR, no_mat );
+		glMaterialfv( GL_FRONT, GL_SHININESS, no_shininess );
+	}
+
+
+	if( mEMISSIVE ){
+		glMaterialfv( GL_FRONT, GL_EMISSION, mat_emission );
+	} else {
+		glMaterialfv( GL_FRONT, GL_EMISSION, no_mat );
+	}
+
+
+	if( mSHADER ){
+		mShader.bind();
+		mShader.uniform( "NumEnabledLights", 1 );
+	}
 
 //	ci::gl::enableAlphaBlending();
 
@@ -338,11 +465,10 @@ void QuadDistrustApp::draw()
 //	mat4 projectionMatrix =_mayaCam.getCamera().getFrustum() mat4::Frustum(-1.6f, 1.6, -2.4, 2.4, 5, 10);
 //	glUniformMatrix4fv(projectionUniform, 1, 0, projectionMatrix.Pointer());
 
-	mShader.bind();
 //	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
 	ci::gl::draw( *_particleMesh );
 	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(100, 100, 100) );
-	mShader.unbind();
+	if( mSHADER ) mShader.unbind();
 
 //	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
 }
