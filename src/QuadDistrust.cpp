@@ -90,8 +90,8 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 15.0f;
-	float count = 1000;
+	float quadSize = 5.0f;
+	float count = 100000;
 
 	float quadNoiseAmount		 = 10;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
@@ -256,6 +256,28 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 void QuadDistrustApp::update()
 {
 	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
+
+
+	float vertexCount = _particleMesh->getNumVertices();
+	if( vertexCount == 0 ) return;
+
+	// store all the mesh information
+	std::vector<ci::Vec3f> &vec = _particleMesh->getVertices();
+
+	int i, j;
+	i = _particleMesh->getNumVertices();
+	j = 0;
+	// something to add a little movement
+	float inc = sin( getElapsedSeconds() ) * 0.1;
+
+	while(j < i) {
+		vec[j].rotateY( inc );
+		vec[j+1].rotateY( inc );
+		vec[j+2].rotateY( inc );
+		vec[j+3].rotateY( inc );
+		// go to the next triangle pair
+		j+=4;
+	}
 }
 
 void QuadDistrustApp::draw()
