@@ -92,7 +92,7 @@ void QuadDistrustApp::setup()
 //	// GL Stuff
 	GLfloat LightAmbient[]  = { 0.5f, 0.5f,  0.5f, 1.0f };
 	GLfloat LightDiffuse[]  = { 1.0f, 1.0f,  1.0f, 1.0f };
-	GLfloat LightPosition[] = { 10.0f, 15.0f, 15.0f, 1.0f };
+	GLfloat LightPosition[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glLightfv( GL_LIGHT0, GL_AMBIENT,  LightAmbient );
 	glLightfv( GL_LIGHT0, GL_DIFFUSE,  LightDiffuse );
 	glLightfv( GL_LIGHT0, GL_POSITION, LightPosition );
@@ -119,7 +119,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 5.0f;
+	float quadSize = 20.0f;
 	float count = 1000;
 
 	float quadNoiseAmount		 = 2;
@@ -319,7 +319,7 @@ void QuadDistrustApp::update()
 		j+=4;
 	}
 
-	mAngle += 0.05f;
+	mAngle += 0.05f;;
 }
 
 void QuadDistrustApp::draw()
@@ -329,7 +329,7 @@ void QuadDistrustApp::draw()
 	ci::gl::enableDepthRead();
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 
-	ci::gl::enableAlphaBlending();
+//	ci::gl::enableAlphaBlending();
 
 //	GLuint positionSlot = mShader.getAttribLocation("Position");
 //	mShader.getAttribLocation("SourceColor");
@@ -338,10 +338,11 @@ void QuadDistrustApp::draw()
 //	mat4 projectionMatrix =_mayaCam.getCamera().getFrustum() mat4::Frustum(-1.6f, 1.6, -2.4, 2.4, 5, 10);
 //	glUniformMatrix4fv(projectionUniform, 1, 0, projectionMatrix.Pointer());
 
-//	mShader.bind();
+	mShader.bind();
 //	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
 	ci::gl::draw( *_particleMesh );
-//	mShader.unbind();
+	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(100, 100, 100) );
+	mShader.unbind();
 
 //	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
 }
