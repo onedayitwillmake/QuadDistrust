@@ -44,7 +44,7 @@ all: QuadDistrust
 QuadDistrust: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: MacOS X C++ Linker'
-	g++ -arch i386 -framework Cocoa -framework OpenGL -framework Carbon -framework CoreVideo -framework QTKit -framework QuickTime -framework Accelerate -framework AudioToolbox -framework AudioUnit -framework CoreAudio -Xlinker /Users/onedayitwillmake/GIT/LIBRARY/Cinder/lib/libcinder_d.a -o "QuadDistrust" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++ -arch i386 -framework Cocoa -framework OpenGL -framework Carbon -framework CoreVideo -framework QTKit -framework QuickTime -framework Accelerate -framework AudioToolbox -framework AudioUnit -framework CoreAudio -Xlinker /Users/mariogonzalez/GIT/library/Cinder/lib/libcinder_d.a -o "QuadDistrust" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 	$(MAKE) --no-print-directory post-build
@@ -55,7 +55,7 @@ clean:
 	-@echo ' '
 
 post-build:
-	-python ../tools/postinstall.py -appName=QuadDistrust --cwd=/Users/onedayitwillmake/GIT/QuadDistrust/build;
+	-python ../tools/postinstall.py -appName=QuadDistrust --cwd=/Users/mariogonzalez/GIT/QuadDistrust/build;
 	-@echo ' '
 
 .PHONY: all clean dependents

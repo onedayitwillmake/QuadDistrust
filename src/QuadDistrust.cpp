@@ -49,8 +49,8 @@ public:
 	ci::gl::Texture		_texture;
 	ci::MayaCamUI		_mayaCam;
 	ci::TriMesh*		_particleMesh;
-	ci::gl::GlslProg		mShader;
-	float			mAngle;
+	ci::gl::GlslProg	mShader;
+	float				mAngle;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
@@ -89,7 +89,7 @@ void QuadDistrustApp::setup()
 		std::cout << "Unable to load shader" << std::endl;
 	}
 
-	// GL Stuff
+//	// GL Stuff
 	GLfloat LightAmbient[]  = { 0.5f, 0.5f,  0.5f, 1.0f };
 	GLfloat LightDiffuse[]  = { 1.0f, 1.0f,  1.0f, 1.0f };
 	GLfloat LightPosition[] = { 10.0f, 15.0f, 15.0f, 1.0f };
@@ -100,8 +100,8 @@ void QuadDistrustApp::setup()
 	glEnable( GL_LIGHTING );
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
-
-	mAngle = 0.0f;
+//
+//	mAngle = 0.0f;
 }
 
 
@@ -122,7 +122,7 @@ void QuadDistrustApp::setupQuadSprites()
 	float quadSize = 5.0f;
 	float count = 1000;
 
-	float quadNoiseAmount		 = 10;
+	float quadNoiseAmount		 = 2;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
@@ -132,13 +132,12 @@ void QuadDistrustApp::setupQuadSprites()
 	{
 		// Random position within radius
 		ci::Vec3f pos = ci::Rand::randVec3f();
-		pos.rotate( ci::Rand::randVec3f(), ci::Rand::randFloat(M_PI*2) );
 
 		// Distribute quad uniformly on a sphere
 		float y = i * o - 1 + (o / 2);
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
-//		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
+		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
 //		pos += ci::Rand::randVec3f() * 50;
 
 		float rate = (float)theta / (float)count;
@@ -332,10 +331,17 @@ void QuadDistrustApp::draw()
 
 	ci::gl::enableAlphaBlending();
 
-	mShader.bind();
-	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
+//	GLuint positionSlot = mShader.getAttribLocation("Position");
+//	mShader.getAttribLocation("SourceColor");
+
+//	GLint projectionUniform = glGetUniformLocation(mShader.getHandle(), "Projection");
+//	mat4 projectionMatrix =_mayaCam.getCamera().getFrustum() mat4::Frustum(-1.6f, 1.6, -2.4, 2.4, 5, 10);
+//	glUniformMatrix4fv(projectionUniform, 1, 0, projectionMatrix.Pointer());
+
+//	mShader.bind();
+//	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
 	ci::gl::draw( *_particleMesh );
-	mShader.unbind();
+//	mShader.unbind();
 
 //	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
 }
