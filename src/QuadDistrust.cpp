@@ -18,10 +18,13 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/app/Renderer.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Vbo.h"
 #include <float.h>
+#include <bitset>
 #include "ZoaDebugFunctions.h"
+#include "Resources.h"
 
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
@@ -46,6 +49,8 @@ public:
 	ci::gl::Texture		_texture;
 	ci::MayaCamUI		_mayaCam;
 	ci::TriMesh*		_particleMesh;
+	ci::gl::GlslProg		mShader;
+	float			mAngle;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
@@ -73,6 +78,30 @@ void QuadDistrustApp::setup()
 
 	setupQuadSprites();
 	getFocus();
+
+	try {
+		mShader = ci::gl::GlslProg( loadResource( RES_PASSTHRU_VERT ), loadResource( RES_BLUR_FRAG ) );
+	}
+	catch( ci::gl::GlslProgCompileExc &exc ) {
+		std::cout << "Shader compile error: " << std::endl;
+		std::cout << exc.what();
+	} catch( ... ) {
+		std::cout << "Unable to load shader" << std::endl;
+	}
+
+	// GL Stuff
+	GLfloat LightAmbient[]  = { 0.5f, 0.5f,  0.5f, 1.0f };
+	GLfloat LightDiffuse[]  = { 1.0f, 1.0f,  1.0f, 1.0f };
+	GLfloat LightPosition[] = { 10.0f, 15.0f, 15.0f, 1.0f };
+	glLightfv( GL_LIGHT0, GL_AMBIENT,  LightAmbient );
+	glLightfv( GL_LIGHT0, GL_DIFFUSE,  LightDiffuse );
+	glLightfv( GL_LIGHT0, GL_POSITION, LightPosition );
+	glEnable( GL_LIGHT0 );
+	glEnable( GL_LIGHTING );
+	ci::gl::enableDepthWrite();
+	ci::gl::enableDepthRead();
+
+	mAngle = 0.0f;
 }
 
 
@@ -91,7 +120,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh->clear();
 
 	float quadSize = 5.0f;
-	float count = 100000;
+	float count = 1000;
 
 	float quadNoiseAmount		 = 10;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
@@ -102,14 +131,15 @@ void QuadDistrustApp::setupQuadSprites()
 	for(int i = 0; i < count; ++i)
 	{
 		// Random position within radius
-		ci::Vec3f pos = ci::Rand::randVec3f() * (ci::Rand::randFloat() * 500.0 + 1000);
+		ci::Vec3f pos = ci::Rand::randVec3f();
+		pos.rotate( ci::Rand::randVec3f(), ci::Rand::randFloat(M_PI*2) );
 
 		// Distribute quad uniformly on a sphere
 		float y = i * o - 1 + (o / 2);
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
-		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
-		pos += ci::Rand::randVec3f() * 50;
+//		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
+//		pos += ci::Rand::randVec3f() * 50;
 
 		float rate = (float)theta / (float)count;
 
@@ -256,7 +286,7 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 void QuadDistrustApp::update()
 {
 	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
-
+	return;
 
 	float vertexCount = _particleMesh->getNumVertices();
 	if( vertexCount == 0 ) return;
@@ -269,15 +299,28 @@ void QuadDistrustApp::update()
 	j = 0;
 	// something to add a little movement
 	float inc = sin( getElapsedSeconds() ) * 0.1;
+	float speed = 10.0f;
+	float limit = 1000;
+	while(j < i)
+	{
+		vec[j] += speed;
+		vec[j+1] += speed;
+		vec[j+2] += speed;
+		vec[j+3] += speed;
 
-	while(j < i) {
-		vec[j].rotateY( inc );
-		vec[j+1].rotateY( inc );
-		vec[j+2].rotateY( inc );
-		vec[j+3].rotateY( inc );
+//		if(vec[j].y > limit )
+//		{
+//			vec[j] -= limit;
+//			vec[j+1] -= limit;
+//			vec[j+2] -= limit;
+//			vec[j+3] -= limit;
+//		}
+
 		// go to the next triangle pair
 		j+=4;
 	}
+
+	mAngle += 0.05f;
 }
 
 void QuadDistrustApp::draw()
@@ -288,7 +331,11 @@ void QuadDistrustApp::draw()
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 
 	ci::gl::enableAlphaBlending();
+
+	mShader.bind();
+	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
 	ci::gl::draw( *_particleMesh );
+	mShader.unbind();
 
 //	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
 }
