@@ -4,13 +4,16 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../src/QuadDistrust.cpp 
+../src/QuadDistrust.cpp \
+../src/ZoaDebugFunctions.cpp 
 
 OBJS += \
-./src/QuadDistrust.o 
+./src/QuadDistrust.o \
+./src/ZoaDebugFunctions.o 
 
 CPP_DEPS += \
-./src/QuadDistrust.d 
+./src/QuadDistrust.d \
+./src/ZoaDebugFunctions.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
