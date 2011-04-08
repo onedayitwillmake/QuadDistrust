@@ -32,7 +32,7 @@ GLfloat no_mat[]			= { 0.0, 0.0, 0.0, 1.0 };
 GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
 GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
 GLfloat mat_specular[]		= { 1.0, 1.0, 1.0, 1.0 };
-GLfloat mat_emission[]		= { 0.4, 0.7, 1.0, 0.0 };
+GLfloat mat_emission[]		= { 0.2, 0.3, 4, 0.0 };
 GLfloat no_shininess[]		= { 0.0 };
 GLfloat mat_shininess[]		= { 128.0 };
 
@@ -68,7 +68,7 @@ public:
 	float		mouseY;
 	bool		mMOUSEDOWN;
 
-	ci::Vec3f		mMouseLoc;
+	ci::Vec3f	mMouseLoc;
 
 	bool		mDIFFUSE;
 	bool		mAMBIENT;
@@ -157,10 +157,10 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 10.0f;
+	float quadSize = 20.0f;
 	float count = 10000;
 
-	float quadNoiseAmount		 = 0.5;
+	float quadNoiseAmount		 = 1.5;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
@@ -314,7 +314,7 @@ void QuadDistrustApp::mouseDrag( ci::app::MouseEvent event )
 
 void QuadDistrustApp::mouseMove( ci::app::MouseEvent event )
 {
-	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), false, event.isRightDown() );
+	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
 }
 
 void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
@@ -387,70 +387,41 @@ void QuadDistrustApp::update()
 	int i, j;
 	i = _particleMesh->getNumVertices();
 	j = 0;
+
 	// something to add a little movement
-	float inc = sin( getElapsedSeconds() ) * 0.1;
-	ci::Vec3f speed = ci::Vec3f(0, 4, 0);
-	float limit = 5000;
-	float quadSize = 10;
-	float n = 2;
-#define ROTATEV(__V__) delta = vec[__V__].normalized(); delta.rotateY( 10 ); delta.y=0; vec[__V__] += delta
+	float 		limit = 5000;
+	ci::Vec3f	moveSpeed = ci::Vec3f(0, 25, 0);
 	while(j < i)
 	{
 		float angle = ci::Rand::randFloat(0.001f, 0.003);
-
-		ci::Vec3f delta;
-
-//		ROTATEV(j);
-////		delta = vec[j].normalized();
-////		delta.rotateY( 10 );
-////		delta.y = 0;
-////		vec[j] += delta;
-//
-//		ROTATEV(j+1);
-//		ROTATEV(j+2);
-//		ROTATEV(j+3);
-
 		vec[j].rotateY( angle );
 		vec[j+1].rotateY( angle );
 		vec[j+2].rotateY( angle );
 		vec[j+3].rotateY( angle );
 
-		vec[j] += speed;
-		vec[j+1] += speed;
-		vec[j+2] += speed;
-		vec[j+3] += speed;
+		vec[j] += moveSpeed;
+		vec[j+1] += moveSpeed;
+		vec[j+2] += moveSpeed;
+		vec[j+3] += moveSpeed;
 
 		if(vec[j].y > limit )
 		{
 			float angle = ci::Rand::randFloat( (float)M_PI * 2.0f );
-			float radius = 1500;
+			float radius = 1000;
 			float x = ci::math<float>::cos( angle ) * radius;
-			float y = limit + ci::Rand::randFloat(-1000, 0);
+			float y = limit;// + ci::Rand::randFloat(1000, 0);
 			float z = ci::math<float>::sin( angle ) * radius;
-//			float x =
-//			ci::Vec3f pos = ci::Rand::randVec3f() * (ci::Rand::randFloat() * 500.0 + 1000);
-//			float aaaPushback =
-//			pos.y = startPosition;
 
-			vec[j].y -= y;
-			vec[j+1].y -= y;
-			vec[j+2].y -= y;
-			vec[j+3].y -= y;
-//			vec[j] = pos;
-//			vec[j].x -= quadSizeR();
-//			vec[j].y += quadSizeR();
+
+			// Push down the 4 points representing the quad
+			vec[j].set(vec[j].x - x, 	 vec[j].y - y, vec[j].z - z);
+			vec[j+1].set(vec[j+1].x - x, vec[j+1].y - y, vec[j+1].z - z);
+			vec[j+2].set(vec[j+2].x - x, vec[j+2].y - y, vec[j+2].z - z);
+			vec[j+3].set(vec[j+3].x - x, vec[j+3].y - y, vec[j+3].z -z);
 //
-//			vec[j+1] = pos;
-//			vec[j+1].x += quadSizeR();
-//			vec[j+1].y += quadSizeR();
-//
-//			vec[j+2] = pos;
-//			vec[j+2].x += quadSizeR();
-//			vec[j+2].y -= quadSizeR();
-//
-//			vec[j+3] = pos;
-//			vec[j+3].x -= quadSizeR();
-//			vec[j+3].y -= quadSizeR();
+//			vec[j+1].y -= y;
+//			vec[j+2].y -= y;
+//			vec[j+3].y -= y;
 		}
 
 		// go to the next triangle pair
@@ -470,9 +441,9 @@ void QuadDistrustApp::draw()
 	glEnable( GL_LIGHT0 );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
-	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 1000.0f ) ) * 0.2f;
+	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 500.0f ) ) * 0.2f;
 
-	GLfloat light_position[] = { mMouseLoc.x, mMouseLoc.y, mMouseLoc.z, mDirectional };
+	GLfloat light_position[] = { mMouseLoc.x + getWindowWidth()/2, mMouseLoc.y + getWindowHeight()/2, mMouseLoc.z, mDirectional };
 	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f );
 	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
@@ -531,7 +502,7 @@ void QuadDistrustApp::draw()
 	ci::gl::draw( *_particleMesh );
 //	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
 	if( mSHADER ) mShader.unbind();
-	ZoaDebugFunctions::drawFloorPlane( 400 );
+//	ZoaDebugFunctions::drawFloorPlane( 400 );
 }
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(0) )
