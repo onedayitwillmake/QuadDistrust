@@ -60,6 +60,7 @@ public:
 	void 	update();
 	void 	draw();
 	void 	addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
+	void	createPlane();
 	void 	calculateTriMeshNormals( ci::TriMesh &mesh );
 
 	//
@@ -67,6 +68,8 @@ public:
 	ci::gl::Texture		_texture;
 	ci::MayaCamUI		_mayaCam;
 	ci::TriMesh*		_particleMesh;
+	ci::TriMesh*		_planeMesh;
+
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
 
@@ -145,10 +148,108 @@ void QuadDistrustApp::setup()
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
 	ci::gl::enableAlphaBlending();
+
+	createPlane();
 //
 //	mAngle = 0.0f;
+
+/*
+ * grid = new Array(_segmentsW+1);
+            for (i = 0; i <= _segmentsW; ++i) {
+                grid[i] = new Array(_segmentsH+1);
+                for (j = 0; j <= _segmentsH; ++j) {
+                	if (_yUp)
+                    	grid[i][j] = createVertex((i / _segmentsW - 0.5) * _width, 0, (j / _segmentsH - 0.5) * _height);
+                    else
+                    	grid[i][j] = createVertex((i / _segmentsW - 0.5) * _width, (j / _segmentsH - 0.5) * _height, 0);
+                }
+            }
+
+            for (i = 0; i < _segmentsW; ++i) {
+                for (j = 0; j < _segmentsH; ++j) {
+                    var a:Vertex = grid[i  ][j  ];
+                    var b:Vertex = grid[i+1][j  ];
+                    var c:Vertex = grid[i  ][j+1];
+                    var d:Vertex = grid[i+1][j+1];
+
+                    var uva:UV = createUV(i     / _segmentsW, j     / _segmentsH);
+                    var uvb:UV = createUV((i+1) / _segmentsW, j     / _segmentsH);
+                    var uvc:UV = createUV(i     / _segmentsW, (j+1) / _segmentsH);
+                    var uvd:UV = createUV((i+1) / _segmentsW, (j+1) / _segmentsH);
+
+                    addFace(createFace(a, b, c, null, uva, uvb, uvc));
+                    addFace(createFace(d, c, b, null, uvd, uvc, uvb));
+                }
+            }
+ */
 }
 
+void QuadDistrustApp::createPlane()
+{
+	_planeMesh = new ci::TriMesh();
+	_planeMesh->clear();
+
+	float segmentsW = 4;
+	float segmentsH = 4;
+	float width = 100;
+	float height = width;
+
+
+	std::vector< std::vector<ci::Vec3f> > grid;
+	for(int i = 0; i <= segmentsW; ++i)
+	{
+		std::vector<ci::Vec3f> row;
+		grid.push_back( row );
+		for(int j = 0; j <= segmentsH; ++j)
+		{
+			ci::Vec3f pos = ci::Vec3f(((float)i / segmentsW - 0.5f) * width, 0, ((float)j / segmentsH - 0.5f) *  height);
+			grid[i].push_back( pos );
+		}
+	}
+
+	for(int i = 0; i < segmentsW; ++i) {
+		for( int j = 0; j < segmentsH; ++j) {
+			ci::Vec3f a = grid[i  ][j  ];
+			ci::Vec3f b = grid[i+1][j  ];
+			ci::Vec3f c = grid[i  ][j+1];
+			ci::Vec3f d = grid[i+1][j+1];
+
+			ci::ColorA color = ci::ColorA( ci::Rand::randFloat(), ci::Rand::randFloat(), ci::Rand::randFloat(), 0.8 );
+
+			std::cout << a << b << c << d << std::endl;
+
+
+			ci::Vec3f e0 = c - a;
+			ci::Vec3f e1 = c - b;
+			ci::Vec3f n = -e0.cross(e1).normalized();
+
+			_planeMesh->appendVertex( a );
+			_planeMesh->appendColorRGBA( color );
+			_planeMesh->appendNormal( n );
+
+			_planeMesh->appendVertex( b );
+			_planeMesh->appendColorRGBA( color );
+			_planeMesh->appendNormal( n );
+
+			_planeMesh->appendVertex( c );
+			_planeMesh->appendColorRGBA( color );
+			_planeMesh->appendNormal( n );
+
+			_planeMesh->appendVertex( d );
+			_planeMesh->appendColorRGBA( color );
+			_planeMesh->appendNormal( n );
+
+			int vertA = _planeMesh->getNumVertices() - 4;
+			int vertB = _planeMesh->getNumVertices() - 3;
+			int vertC = _planeMesh->getNumVertices() - 2;
+			int vertD = _planeMesh->getNumVertices() - 1;
+
+			_planeMesh->appendTriangle( vertA, vertB, vertC );
+			_planeMesh->appendTriangle( vertD, vertC, vertB );
+
+		}
+	}
+}
 
 // Creates a bunch of quads, trying to copy this structure
 /*
@@ -164,11 +265,11 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float count = 10000;
+	float count = 1000;
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
 	float o			 = 2.0f / count;
-	float radius	 = 1000;
+	float radius	 = 100;
 	for(int i = 0; i < count; ++i)
 	{
 		// Random position within radius
@@ -182,10 +283,10 @@ void QuadDistrustApp::setupQuadSprites()
 		pos += ci::Rand::randVec3f() * 50;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
-		float angle = ci::Rand::randFloat( M_PI * 2 );
+		float angle = ci::Rand::randFloat( M_PI );
 
 		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
-		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 10, 1, angle );
+		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 50, 5, angle );
 		addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 	}
 
@@ -347,7 +448,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, std::numeric_limits<int>::max());
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 6000);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -371,15 +472,17 @@ void QuadDistrustApp::update()
 	j = 0;
 
 	// something to add a little movement
-	float 		limit = 5000;
-	ci::Vec3f	moveSpeed = ci::Vec3f(0, 25, 0);
+	float 		limit = 1000;
+	ci::Vec3f	moveSpeed = ci::Vec3f(0, 4, 0);
+	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
+
 	while(j < i)
 	{
-		float angle = ci::Rand::randFloat(0.001f, 0.003);
-		vec[j].rotateY( angle );
-		vec[j+1].rotateY( angle );
-		vec[j+2].rotateY( angle );
-		vec[j+3].rotateY( angle );
+//		float angle = ci::Rand::randFloat(0.001f, 0.003);
+//		vec[j].rotateY( angle );
+//		vec[j+1].rotateY( angle );
+//		vec[j+2].rotateY( angle );
+//		vec[j+3].rotateY( angle );
 
 		vec[j] += moveSpeed;
 		vec[j+1] += moveSpeed;
@@ -389,18 +492,25 @@ void QuadDistrustApp::update()
 		if(vec[j].y > limit )
 		{
 			float angle = ci::Rand::randFloat( (float)M_PI * 2.0f );
-			float radius = 1000;
+			float radius = 2000;
 			float x = ci::math<float>::cos( angle ) * radius;
-			float y = limit + ci::Rand::randFloat(1000, 0);
-			float z = ci::math<float>::sin( angle ) * radius;
+			float y = ci::Rand::randFloat() * 600;
+			float z = ci::math<float>::sin( ci::Rand::randFloat( (float)M_PI * 2.0f ) ) * radius;
 
 
 			// Normalize then position of each vector in the quad, and then set at new random location
 			// Otherwise quad will be come zero width
-			vec[j].y -= y;
-			vec[j+1].y -= y;
-			vec[j+2].y -= y;
-			vec[j+3].y -= y;
+			ci::Vec3f pos = ci::Vec3f( x, y, z );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, ci::Rand::randFloat( (float)M_PI) );
+
+			// Fix normal for new quad position
+			ci::Vec3f e0 = vec[j+2] - vec[j];
+			ci::Vec3f e1 = vec[j+2] - vec[j+1];
+			ci::Vec3f n = e0.cross(e1).normalized();
+			normals[j] = n;
+			normals[j+1] = n;
+			normals[j+2] = n;
+			normals[j+3] = n;
 		}
 
 		// go to the next triangle pair
@@ -416,15 +526,17 @@ void QuadDistrustApp::draw()
 	ci::gl::clear( ci::Color( 0, 0, 0 ) );
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 
-	glEnable( GL_LIGHTING );
+//	glEnable( GL_LIGHTING );
 	glEnable( GL_LIGHT0 );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 500.0f ) ) * 0.2f;
 
-	GLfloat light_position[] = { 1, 1, 40, mDirectional };
+	ci::Vec3f camPos = _mayaCam.getCamera().getEyePoint();
+	GLfloat light_position[] = { camPos.x, camPos.y, camPos.z, mDirectional };
 	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 
+	//
 	GLfloat light_Kd[] = { 1.0, 0.5, 1.0, 1.0 };
 	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
 	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f );
@@ -475,7 +587,12 @@ void QuadDistrustApp::draw()
 	ci::gl::draw( *_particleMesh );
 	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
 	if( mSHADER ) mShader.unbind();
-//	ZoaDebugFunctions::drawFloorPlane( 400 );
+
+//	glDisable( GL_LIGHTING );
+	glColor3f( 1, 1, 1 );
+	ci::gl::draw( *_planeMesh );
+//	ZoaDebugFunctions::drawFloorPlane();
+//	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
 }
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(0) )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(4) )
