@@ -28,6 +28,12 @@
 #include "ZoaDebugFunctions.h"
 #include "Resources.h"
 
+struct MeshQuad
+{
+	size_t index;
+	ci::Vec3f velocity;
+};
+
 GLfloat no_mat[]			= { 0.0, 0.0, 0.0, 1.0 };
 GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
 GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
@@ -53,6 +59,7 @@ public:
 	void update();
 	void draw();
 	void addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
+	void createQuadAtPosition( ci::Vec3f position, ci::Vec3f& v1, ci::Vec3f& v2, ci::Vec3f& v3, ci::Vec3f& v4, float size, float rotationY );
 	void calculateTriMeshNormals( ci::TriMesh &mesh );
 
 	// Draw a cube (
@@ -157,11 +164,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float quadSize = 20.0f;
 	float count = 10000;
-
-	float quadNoiseAmount		 = 1.5;
-#define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
 	float o			 = 2.0f / count;
@@ -178,36 +181,42 @@ void QuadDistrustApp::setupQuadSprites()
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
 		pos += ci::Rand::randVec3f() * 50;
 
-		float rate = (float)theta / (float)count;
-
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
 		float angle = ci::Rand::randFloat( M_PI * 2 );
 
-		// Define v1,v2,v3,v4 by taking that position and moving outward 1 "quadSize"
-		ci::Vec3f v1 = ci::Vec3f::zero();
-		v1.x -= quadNoise(), v1.y += quadNoise();
-		v1.rotateY(angle);
-		v1 += pos;
-
-		ci::Vec3f v2 = ci::Vec3f::zero();;
-		v2.x += quadNoise(), v2.y += quadNoise();
-		v2.rotateY(angle);
-		v2 += pos;
-
-		ci::Vec3f v3 = ci::Vec3f::zero();;
-		v3.x += quadNoise(), v3.y -= quadNoise();
-		v3.rotateY(angle);
-		v3 += pos;
-
-		ci::Vec3f v4 = ci::Vec3f::zero();;
-		v4.x -= quadNoise(), v4.y -= quadNoise();
-		v4.rotateY(angle);
-		v4 += pos;
-
+		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
+		createQuadAtPosition( pos, v1, v2, v3, v4, 10, angle );
 		addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 	}
 
 //	calculateTriMeshNormals( *_particleMesh );
+}
+
+// Define v1,v2,v3,v4 by taking that position and moving outward 1 "quadSize"
+void QuadDistrustApp::createQuadAtPosition( ci::Vec3f position, ci::Vec3f& v1, ci::Vec3f& v2, ci::Vec3f& v3, ci::Vec3f& v4, float size, float rotationY )
+{
+	float quadNoiseAmount		 = 1.5;
+	#define quadNoise() (size + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
+
+	v1 = ci::Vec3f::zero();
+	v1.x -= quadNoise(), v1.y += quadNoise();
+	v1.rotateY(rotationY);
+	v1 += position;
+
+	v2 = ci::Vec3f::zero();;
+	v2.x += quadNoise(), v2.y += quadNoise();
+	v2.rotateY(rotationY);
+	v2 += position;
+
+	v3 = ci::Vec3f::zero();;
+	v3.x += quadNoise(), v3.y -= quadNoise();
+	v3.rotateY(rotationY);
+	v3 += position;
+
+	v4 = ci::Vec3f::zero();;
+	v4.x -= quadNoise(), v4.y -= quadNoise();
+	v4.rotateY(rotationY);
+	v4 += position;
 }
 
 void QuadDistrustApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
@@ -409,19 +418,16 @@ void QuadDistrustApp::update()
 			float angle = ci::Rand::randFloat( (float)M_PI * 2.0f );
 			float radius = 1000;
 			float x = ci::math<float>::cos( angle ) * radius;
-			float y = limit;// + ci::Rand::randFloat(1000, 0);
+			float y = limit + ci::Rand::randFloat(1000, 0);
 			float z = ci::math<float>::sin( angle ) * radius;
 
 
-			// Push down the 4 points representing the quad
-			vec[j].set(vec[j].x - x, 	 vec[j].y - y, vec[j].z - z);
-			vec[j+1].set(vec[j+1].x - x, vec[j+1].y - y, vec[j+1].z - z);
-			vec[j+2].set(vec[j+2].x - x, vec[j+2].y - y, vec[j+2].z - z);
-			vec[j+3].set(vec[j+3].x - x, vec[j+3].y - y, vec[j+3].z -z);
-//
-//			vec[j+1].y -= y;
-//			vec[j+2].y -= y;
-//			vec[j+3].y -= y;
+			// Normalize then position of each vector in the quad, and then set at new random location
+			// Otherwise quad will be come zero width
+			vec[j].y -= y;
+			vec[j+1].y -= y;
+			vec[j+2].y -= y;
+			vec[j+3].y -= y;
 		}
 
 		// go to the next triangle pair
@@ -453,7 +459,7 @@ void QuadDistrustApp::draw()
 //	float distFromLight	= dirFromLight.length();
 
 	if( mDIFFUSE ){
-		ci::ColorA color( ci::CM_HSV, 0.5f, 0.4f, 0.5f, 1.0f );
+		ci::ColorA color( 1.0f, 1.0f, 1.0f, 1.0f );
 		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
 	} else {
 		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
