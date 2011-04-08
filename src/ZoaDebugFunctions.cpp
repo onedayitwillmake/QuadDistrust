@@ -5,6 +5,7 @@
  * @author Mario Gonzalez
  */
 #include "ZoaDebugFunctions.h"
+#include "cinder/Rand.h"
 
 void ZoaDebugFunctions::trimeshDrawNormals( ci::TriMesh &mesh )
 {
@@ -37,3 +38,34 @@ void ZoaDebugFunctions::drawFloorPlane( float floorSize )
 		glTexCoord2f(0.0f,0.0f); glVertex3f(-floorSize, 0.0f,-floorSize);
 	glEnd();
 }
+
+// Modifies the 4 passed vertices to create a quad of 'size' dimensions
+void ZoaDebugFunctions::createQuadAtPosition( ci::Vec3f position,
+		ci::Vec3f& v1, ci::Vec3f& v2, ci::Vec3f& v3, ci::Vec3f& v4,
+		float size,
+		float noise,
+		float rotationY )
+{
+	#define quadNoise() (size + ci::Rand::randFloat(-noise, noise))
+
+	v1 = ci::Vec3f::zero();
+	v1.x -= quadNoise(), v1.y += quadNoise();
+	v1.rotateY(rotationY);
+	v1 += position;
+
+	v2 = ci::Vec3f::zero();;
+	v2.x += quadNoise(), v2.y += quadNoise();
+	v2.rotateY(rotationY);
+	v2 += position;
+
+	v3 = ci::Vec3f::zero();;
+	v3.x += quadNoise(), v3.y -= quadNoise();
+	v3.rotateY(rotationY);
+	v3 += position;
+
+	v4 = ci::Vec3f::zero();;
+	v4.x -= quadNoise(), v4.y -= quadNoise();
+	v4.rotateY(rotationY);
+	v4 += position;
+}
+

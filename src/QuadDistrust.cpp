@@ -44,10 +44,10 @@ GLfloat mat_shininess[]		= { 128.0 };
 
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
-	void prepareSettings( ci::app::AppBasic::Settings *settings );
-	void setup();
-	void setupCamera();
-	void setupQuadSprites();
+	void 	prepareSettings( ci::app::AppBasic::Settings *settings );
+	void 	setup();
+	void 	setupCamera();
+	void 	setupQuadSprites();
 
 	void	resize( ci::app::ResizeEvent event );
 	void	mouseDown( ci::app::MouseEvent event );
@@ -56,13 +56,12 @@ public:
 	void	mouseUp( ci::app::MouseEvent event );
 	void 	keyDown( ci::app::KeyEvent event );
 
-	void update();
-	void draw();
-	void addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
-	void createQuadAtPosition( ci::Vec3f position, ci::Vec3f& v1, ci::Vec3f& v2, ci::Vec3f& v3, ci::Vec3f& v4, float size, float rotationY );
-	void calculateTriMeshNormals( ci::TriMesh &mesh );
+	void 	update();
+	void 	draw();
+	void 	addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
+	void 	calculateTriMeshNormals( ci::TriMesh &mesh );
 
-	// Draw a cube (
+	//
 	ci::Matrix44f		_cubeRotation;
 	ci::gl::Texture		_texture;
 	ci::MayaCamUI		_mayaCam;
@@ -185,38 +184,11 @@ void QuadDistrustApp::setupQuadSprites()
 		float angle = ci::Rand::randFloat( M_PI * 2 );
 
 		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
-		createQuadAtPosition( pos, v1, v2, v3, v4, 10, angle );
+		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 10, 1, angle );
 		addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 	}
 
 //	calculateTriMeshNormals( *_particleMesh );
-}
-
-// Define v1,v2,v3,v4 by taking that position and moving outward 1 "quadSize"
-void QuadDistrustApp::createQuadAtPosition( ci::Vec3f position, ci::Vec3f& v1, ci::Vec3f& v2, ci::Vec3f& v3, ci::Vec3f& v4, float size, float rotationY )
-{
-	float quadNoiseAmount		 = 1.5;
-	#define quadNoise() (size + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
-
-	v1 = ci::Vec3f::zero();
-	v1.x -= quadNoise(), v1.y += quadNoise();
-	v1.rotateY(rotationY);
-	v1 += position;
-
-	v2 = ci::Vec3f::zero();;
-	v2.x += quadNoise(), v2.y += quadNoise();
-	v2.rotateY(rotationY);
-	v2 += position;
-
-	v3 = ci::Vec3f::zero();;
-	v3.x += quadNoise(), v3.y -= quadNoise();
-	v3.rotateY(rotationY);
-	v3 += position;
-
-	v4 = ci::Vec3f::zero();;
-	v4.x -= quadNoise(), v4.y -= quadNoise();
-	v4.rotateY(rotationY);
-	v4 += position;
 }
 
 void QuadDistrustApp::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
@@ -495,18 +467,9 @@ void QuadDistrustApp::draw()
 	}
 
 //	ci::gl::enableAlphaBlending();
-
-//	GLuint positionSlot = mShader.getAttribLocation("Position");
-//	mShader.getAttribLocation("SourceColor");
-
-//	GLint projectionUniform = glGetUniformLocation(mShader.getHandle(), "Projection");
-//	mat4 projectionMatrix =_mayaCam.getCamera().getFrustum() mat4::Frustum(-1.6f, 1.6, -2.4, 2.4, 5, 10);
-//	glUniformMatrix4fv(projectionUniform, 1, 0, projectionMatrix.Pointer());
-
-//	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
 	float cubeSize = 25;
 	ci::gl::draw( *_particleMesh );
-//	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
+	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
 	if( mSHADER ) mShader.unbind();
 //	ZoaDebugFunctions::drawFloorPlane( 400 );
 }
