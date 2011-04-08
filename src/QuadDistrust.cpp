@@ -21,6 +21,8 @@
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Vbo.h"
+#include "cinder/ImageIo.h"
+#include "cinder/Utilities.h"
 #include <float.h>
 #include <bitset>
 #include "ZoaDebugFunctions.h"
@@ -179,19 +181,28 @@ void QuadDistrustApp::setupQuadSprites()
 		float rate = (float)theta / (float)count;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
+		float angle = ci::Rand::randFloat( M_PI * 2 );
 
 		// Define v1,v2,v3,v4 by taking that position and moving outward 1 "quadSize"
-		ci::Vec3f v1 = pos;
+		ci::Vec3f v1 = ci::Vec3f::zero();
 		v1.x -= quadNoise(), v1.y += quadNoise();
+		v1.rotateY(angle);
+		v1 += pos;
 
-		ci::Vec3f v2 = pos;
+		ci::Vec3f v2 = ci::Vec3f::zero();;
 		v2.x += quadNoise(), v2.y += quadNoise();
+		v2.rotateY(angle);
+		v2 += pos;
 
-		ci::Vec3f v3 = pos;
+		ci::Vec3f v3 = ci::Vec3f::zero();;
 		v3.x += quadNoise(), v3.y -= quadNoise();
+		v3.rotateY(angle);
+		v3 += pos;
 
-		ci::Vec3f v4 = pos;
+		ci::Vec3f v4 = ci::Vec3f::zero();;
 		v4.x -= quadNoise(), v4.y -= quadNoise();
+		v4.rotateY(angle);
+		v4 += pos;
 
 		addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 	}
@@ -303,7 +314,7 @@ void QuadDistrustApp::mouseDrag( ci::app::MouseEvent event )
 
 void QuadDistrustApp::mouseMove( ci::app::MouseEvent event )
 {
-	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
+	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), false, event.isRightDown() );
 }
 
 void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
@@ -328,8 +339,12 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	else if( event.getChar() == 'g' || event.getChar() == 'G' ){
 		mSHADER = ! mSHADER;
 	}
-	else if( event.getChar() == 'f' || event.getChar() == 'F' ){
+	else if( event.getChar() == 'p' || event.getChar() == 'p' ){
 //		setFullScreen( ! isFullScreen() );
+		std::ostringstream stringBuffer;
+		stringBuffer << clock();
+		std::string aTimeString = stringBuffer.str();
+		ci::writeImage( ci::getHomeDirectory() + "QuadDistrust/" + aTimeString + ".png", copyWindowSurface() );
 	}
 	else if( event.getChar() == '/' || event.getChar() == '?' ){
 //		mInfoPanel.toggleState();
@@ -374,7 +389,7 @@ void QuadDistrustApp::update()
 	j = 0;
 	// something to add a little movement
 	float inc = sin( getElapsedSeconds() ) * 0.1;
-	ci::Vec3f speed = ci::Vec3f(0, 25, 0);
+	ci::Vec3f speed = ci::Vec3f(0, 4, 0);
 	float limit = 5000;
 	float quadSize = 10;
 	float n = 2;
@@ -467,7 +482,7 @@ void QuadDistrustApp::draw()
 //	float distFromLight	= dirFromLight.length();
 
 	if( mDIFFUSE ){
-		ci::ColorA color( ci::CM_HSV, 0.2f, 0.4f, 0.5f, 1.0f );
+		ci::ColorA color( ci::CM_HSV, 0.5f, 0.4f, 0.5f, 1.0f );
 		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
 	} else {
 		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
@@ -512,11 +527,11 @@ void QuadDistrustApp::draw()
 //	glUniformMatrix4fv(projectionUniform, 1, 0, projectionMatrix.Pointer());
 
 //	mShader.uniform( "eyeDir", _mayaCam.getCamera().getViewDirection().normalized() );
+	float cubeSize = 25;
 	ci::gl::draw( *_particleMesh );
-	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(100, 100, 100) );
+//	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
 	if( mSHADER ) mShader.unbind();
-
-//	ZoaDebugFunctions::trimeshDrawNormals( *_particleMesh );
+	ZoaDebugFunctions::drawFloorPlane( 400 );
 }
 
 CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl )
