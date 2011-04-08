@@ -158,7 +158,7 @@ void QuadDistrustApp::setupQuadSprites()
 	float quadSize = 10.0f;
 	float count = 10000;
 
-	float quadNoiseAmount		 = 5;
+	float quadNoiseAmount		 = 0.5;
 #define quadNoise() (quadSize + ci::Rand::randFloat(-quadNoiseAmount, quadNoiseAmount))
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
@@ -362,7 +362,6 @@ void QuadDistrustApp::update()
 		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
 
 	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
-	return;
 
 	float vertexCount = _particleMesh->getNumVertices();
 	if( vertexCount == 0 ) return;
@@ -375,22 +374,69 @@ void QuadDistrustApp::update()
 	j = 0;
 	// something to add a little movement
 	float inc = sin( getElapsedSeconds() ) * 0.1;
-	float speed = 10.0f;
-	float limit = 1000;
+	ci::Vec3f speed = ci::Vec3f(0, 25, 0);
+	float limit = 5000;
+	float quadSize = 10;
+	float n = 2;
+#define ROTATEV(__V__) delta = vec[__V__].normalized(); delta.rotateY( 10 ); delta.y=0; vec[__V__] += delta
 	while(j < i)
 	{
+		float angle = ci::Rand::randFloat(0.001f, 0.003);
+
+		ci::Vec3f delta;
+
+//		ROTATEV(j);
+////		delta = vec[j].normalized();
+////		delta.rotateY( 10 );
+////		delta.y = 0;
+////		vec[j] += delta;
+//
+//		ROTATEV(j+1);
+//		ROTATEV(j+2);
+//		ROTATEV(j+3);
+
+		vec[j].rotateY( angle );
+		vec[j+1].rotateY( angle );
+		vec[j+2].rotateY( angle );
+		vec[j+3].rotateY( angle );
+
 		vec[j] += speed;
 		vec[j+1] += speed;
 		vec[j+2] += speed;
 		vec[j+3] += speed;
 
-//		if(vec[j].y > limit )
-//		{
-//			vec[j] -= limit;
-//			vec[j+1] -= limit;
-//			vec[j+2] -= limit;
-//			vec[j+3] -= limit;
-//		}
+		if(vec[j].y > limit )
+		{
+			float angle = ci::Rand::randFloat( (float)M_PI * 2.0f );
+			float radius = 1500;
+			float x = ci::math<float>::cos( angle ) * radius;
+			float y = limit + ci::Rand::randFloat(-1000, 0);
+			float z = ci::math<float>::sin( angle ) * radius;
+//			float x =
+//			ci::Vec3f pos = ci::Rand::randVec3f() * (ci::Rand::randFloat() * 500.0 + 1000);
+//			float aaaPushback =
+//			pos.y = startPosition;
+
+			vec[j].y -= y;
+			vec[j+1].y -= y;
+			vec[j+2].y -= y;
+			vec[j+3].y -= y;
+//			vec[j] = pos;
+//			vec[j].x -= quadSizeR();
+//			vec[j].y += quadSizeR();
+//
+//			vec[j+1] = pos;
+//			vec[j+1].x += quadSizeR();
+//			vec[j+1].y += quadSizeR();
+//
+//			vec[j+2] = pos;
+//			vec[j+2].x += quadSizeR();
+//			vec[j+2].y -= quadSizeR();
+//
+//			vec[j+3] = pos;
+//			vec[j+3].x -= quadSizeR();
+//			vec[j+3].y -= quadSizeR();
+		}
 
 		// go to the next triangle pair
 		j+=4;
