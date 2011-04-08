@@ -27,6 +27,7 @@
 #include <bitset>
 #include "ZoaDebugFunctions.h"
 #include "Resources.h"
+#include "gl.h"
 
 struct MeshQuad
 {
@@ -38,7 +39,7 @@ GLfloat no_mat[]			= { 0.0, 0.0, 0.0, 1.0 };
 GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
 GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
 GLfloat mat_specular[]		= { 1.0, 1.0, 1.0, 1.0 };
-GLfloat mat_emission[]		= { 0.2, 0.3, 4, 0.0 };
+GLfloat mat_emission[]		= { 0.4, 0.7, 1.0, 0.0 };
 GLfloat no_shininess[]		= { 0.0 };
 GLfloat mat_shininess[]		= { 128.0 };
 
@@ -332,8 +333,8 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	}
 	else if( event.getChar() == ',' || event.getChar() == '<' ){
 		mat_shininess[0] *= 0.5f;
-		if( mat_shininess[0] < 8.0f )
-			mat_shininess[0] = 8.0f;
+		if( mat_shininess[0] < 1.0f )
+			mat_shininess[0] = 1.0f;
 	}
 	else if( event.getChar() == '.' || event.getChar() == '>' ){
 		mat_shininess[0] *= 2.0f;
@@ -421,9 +422,12 @@ void QuadDistrustApp::draw()
 
 	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 500.0f ) ) * 0.2f;
 
-	GLfloat light_position[] = { mMouseLoc.x + getWindowWidth()/2, mMouseLoc.y + getWindowHeight()/2, mMouseLoc.z, mDirectional };
+	GLfloat light_position[] = { 1, 1, 40, mDirectional };
 	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
-	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.0f );
+
+	GLfloat light_Kd[] = { 1.0, 0.5, 1.0, 1.0 };
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
+	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f );
 	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
 	glLightf( GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00015f );
 
