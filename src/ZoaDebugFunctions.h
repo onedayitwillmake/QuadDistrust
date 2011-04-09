@@ -36,7 +36,7 @@ public:
 	static void addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color );
 
 	// Creates a plane of 'width' with 'sW', 'sH' segements at 'offset' and places geometry into 'mesh'
-	static void createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH );
+	static void createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH, float noiseScale );
 
 	// Removes all normals if exist, and re-calculates all vertex normals for a mesh by averaging out in triangles the vertex is used - from sansumbrella
 	static void calculateTriMeshNormals( ci::TriMesh &mesh );

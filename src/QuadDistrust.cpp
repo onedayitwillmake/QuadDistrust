@@ -31,7 +31,7 @@
 #include "Resources.h"
 #include "gl.h"
 
-struct MeshQuad
+struct IndexedQuad
 {
 	size_t index;
 	ci::Vec3f velocity;
@@ -60,6 +60,7 @@ public:
 	ci::MayaCamUI		_mayaCam;
 	ci::TriMesh*		_particleMesh;
 	ci::TriMesh*		_planeMesh;
+	std::vector< IndexedQuad > _indexedQuads;
 
 	ci::gl::Light*		_light;
 	ci::gl::Material*	_material;
@@ -67,39 +68,39 @@ public:
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
 
-	float		mCounter;
 	float		mouseX;
 	float		mouseY;
 	bool		mMOUSEDOWN;
+	float		mDirectional;
 
 	ci::Vec3f	mMouseLoc;
 
-	bool		_matUseDiffuse;
-	bool		_matUseAmbient;
-	bool		_matUseSpecular;
-	bool		_matUseEmissive;
-	bool		mSHADER;
-	float		mDirectional;
 
+	// Material
 	ci::ColorA	_matNone;
 	ci::ColorA	_matAmbient;
 	ci::ColorA	_matDiffuse;
 	ci::ColorA	_matSpecular;
 	ci::ColorA	_matEmission;
 	float		_matShininess;
+	// Material toggle
+	bool		_matUseDiffuse;
+	bool		_matUseAmbient;
+	bool		_matUseSpecular;
+	bool		_matUseEmissive;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 {
-	settings->setWindowSize( 800, 600 );
+	settings->setWindowSize( 1024, 768 );
 }
 
 
 void QuadDistrustApp::setup()
 {
 	_light = new ci::gl::Light( ci::gl::Light::DIRECTIONAL, 0);
-	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
-
+//	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
+	mDirectional = 1.0f;
 	setupMaterials();
 	setupQuadSprites();
 
@@ -115,23 +116,8 @@ void QuadDistrustApp::setup()
 	}
 
 //	// GL Stuff
-	mCounter		= 0.0f;
-	mMouseLoc = ci::Vec3f::zero();
-
-
-	mMOUSEDOWN		= false;
-
-	_matUseDiffuse		= true;
-	_matUseAmbient		= true;
-	_matUseSpecular		= true;
-	mSHADER			= true;
-	_matUseEmissive		= false;
-
-	mDirectional	= 1.0f;
-
-
-	mMouseLoc = ci::Vec3f::zero();
-
+	mMouseLoc 	= ci::Vec3f::zero();
+	mMOUSEDOWN	= false;
 
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
@@ -139,7 +125,7 @@ void QuadDistrustApp::setup()
 
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
 
 	getFocus();
 }
@@ -160,6 +146,8 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh->clear();
 
 	float count = 10000;
+
+	_indexedQuads.reserve( count );
 
 	float theta 	 = M_PI * (3.0 - sqrtf(5.0));
 	float o			 = 2.0f / count;
@@ -183,6 +171,13 @@ void QuadDistrustApp::setupQuadSprites()
 		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
 		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 50, 5, angle );
 		ZoaDebugFunctions::addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
+
+		// Store in index quad
+		IndexedQuad iq;
+		iq.index = i;
+		iq.velocity = ci::Vec3f::zero();
+
+		_indexedQuads.push_back( iq );
 	}
 
 //	calculateTriMeshNormals( *_particleMesh );
@@ -210,6 +205,11 @@ void QuadDistrustApp::setupCamera()
 
 void QuadDistrustApp::setupMaterials()
 {
+	_matUseDiffuse		= true;
+	_matUseAmbient		= true;
+	_matUseSpecular		= true;
+	_matUseEmissive		= false;
+
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 	_matAmbient			= ci::ColorA( 0.1f, 0.1f, 0.1f, 1.0f );
 	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
@@ -223,21 +223,27 @@ void QuadDistrustApp::setupMaterials()
 
 void QuadDistrustApp::mouseDown( ci::app::MouseEvent event )
 {
+	mMOUSEDOWN = true;
 	_mayaCam.mouseDown( event.getPos() );
 }
 
 void QuadDistrustApp::mouseDrag( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
+	mouseX = event.getPos().x;
+	mouseY = event.getPos().y;
 }
 
 void QuadDistrustApp::mouseMove( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
+	mouseX = event.getPos().x;
+	mouseY = event.getPos().y;
 }
 
 void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 {
+	mMOUSEDOWN = false;
 	_mayaCam.mouseDown( event.getPos() );
 }
 
@@ -310,10 +316,10 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
-//	if( ! mMOUSEDOWN )
-//		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
-//	else
-//		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
+	if( ! mMOUSEDOWN )
+		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
+	else
+		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
 
 //	_light->update( _mayaCam.getCamera() )
 	float vertexCount = _particleMesh->getNumVertices();
@@ -328,7 +334,7 @@ void QuadDistrustApp::update()
 
 	// something to add a little movement
 	float 		limit = 1000;
-	ci::Vec3f	moveSpeed = ci::Vec3f(0, 0, 0);
+	ci::Vec3f	moveSpeed = ci::Vec3f(0, 0.1, 0);
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	while(j < i)
@@ -369,89 +375,56 @@ void QuadDistrustApp::update()
 		j+=4;
 	}
 
-	mAngle += 0.05f;;
+	mAngle += 0.005f;
 }
 
 void QuadDistrustApp::draw()
 {
+	static bool movedOnce = false;
+
+
 	// clear out the window with black
-	ci::gl::clear( ci::Color( 0, 0, 0 ) );
+	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
+	ci::gl::disableAlphaBlending();
+
 	ci::gl::setMatrices( _mayaCam.getCamera() );
+	_light->update( _mayaCam.getCamera() );
 
-//	glEnable( GL_LIGHTING );
-//	glEnable( GL_LIGHT0 );
-	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-
-	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 500.0f ) ) * 0.2f;
-
-//	ci::Vec3f camPos = _mayaCam.getCamera().getEyePoint();
-//	ci::Vec3f lightOffset = ci::Vec3f(200, 0, 0);
-//	lightOffset
-//
-//	float moveX = ci::math<float>::sin( getElapsedSeconds() * 0.5 );
-//	GLfloat light_position[] = { camPos.x + moveX*3000, camPos.y, camPos.z, mDirectional };
-//	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
-
-	//
-//	GLfloat light_Kd[] = { 0.5f, 0.5f, 0.5f, 1.0 };
-//	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
-//	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f );
-//	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
-//	glLightf( GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00015f );
-
-//	ci::Vec3f dirFromLight	= ci::Rand::randVec3f() * 1000;
-//	float distFromLight	= dirFromLight.length();
-
-//	if( mDIFFUSE ){
-//		ci::ColorA color( 1.0f, 1.0f, 1.0f, 1.0f );
-//		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
-//	} else {
-//		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
-//	}
-
-
-//	if( mAMBIENT ){
-//		glMaterialfv( GL_FRONT, GL_AMBIENT,	mat_ambient );
-//	} else {
-//		glMaterialfv( GL_FRONT, GL_AMBIENT,	no_mat );
-//	}
-//
-//
-//	if( mSPECULAR ){
-//		glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular );
-//		glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess );
-//	} else {
-//		glMaterialfv( GL_FRONT, GL_SPECULAR, no_mat );
-//		glMaterialfv( GL_FRONT, GL_SHININESS, no_shininess );
-//	}
-//
-//
-//	if( mEMISSIVE ){
-//		glMaterialfv( GL_FRONT, GL_EMISSION, mat_emission );
-//	} else {
-//		glMaterialfv( GL_FRONT, GL_EMISSION, no_mat );
-//	}
-
-	GLfloat light_Kd[] = { 0.5f, 0.5f, 0.5f, 1.0 };
-	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
 	_light->enable();
 
-	// BEGIN SHADER
-	if( mSHADER ){
-		mShader.bind();
-		mShader.uniform( "NumEnabledLights", 1 );
+//	_light->update( _mayaCam.getCamera() );
+
+	if(!movedOnce)
+	{
+		// Move light
+			float r = 1000;
+			float x = ci::math<float>::cos( mAngle ) * r;
+			float y = ci::math<float>::sin( getElapsedSeconds() * 0.0 ) * 500.0 + 500.0;
+			float z = ci::math<float>::sin( mAngle ) * r;
+//			movedOnce = true;
+			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f::zero() );
+			//
+			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.5 ) ) * 0.989f + 0.1f;
+			std::cout << dir << std::endl;
+			GLfloat light_position[] = { x, y, z, dir };
+			glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
 
-//	ci::gl::enableAlphaBlending();
-	ci::gl::draw( *_particleMesh );
 
-	float cubeSize = 25;
-	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
 
+	// BEGIN SHADER
+	mShader.bind();
+	mShader.uniform( "NumEnabledLights", 1 );
+		ci::gl::draw( *_particleMesh );
+		float cubeSize = 25;
+		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
+	mShader.unbind();
 	// END SHADER
-	if(mSHADER)
-		mShader.unbind();
 
+
+	_light->disable();
+	glColor3f( 1.0f, 1.0f, 0.1f );
+//	ci::gl::drawFrustum( _light->getShadowCamera() );
 	// Draw floor
 	ci::gl::enableWireframe();
 	ci::gl::draw( *_planeMesh );

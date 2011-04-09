@@ -70,7 +70,7 @@ void ZoaDebugFunctions::createQuadAtPosition( ci::Vec3f position,
 }
 
 // Creates a plane of 'width' with 'sW', 'sH' segements at 'offset' and places geometry into 'mesh'
-void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH )
+void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH, float noiseScale = 0 )
 {
 	std::vector< std::vector<ci::Vec3f> > grid;
 	for(int i = 0; i <= segmentsW; ++i)
@@ -81,6 +81,12 @@ void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float 
 		{
 			ci::Vec3f pos = ci::Vec3f(((float)i / (float)segmentsW - 0.5f) * width, 0, ((float)j / (float)segmentsH - 0.5f) *  height);
 			pos += offset;
+
+			// Apply noise to the points if passed in
+			if(noiseScale != 0) {
+				pos += ci::Rand::randVec3f() * noiseScale;
+			}
+
 			grid[i].push_back( pos );
 		}
 	}
