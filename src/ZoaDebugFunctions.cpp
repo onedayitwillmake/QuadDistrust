@@ -69,3 +69,105 @@ void ZoaDebugFunctions::createQuadAtPosition( ci::Vec3f position,
 	v4 += position;
 }
 
+// Creates a plane of 'width' with 'sW', 'sH' segements at 'offset' and places geometry into 'mesh'
+void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH )
+{
+	std::vector< std::vector<ci::Vec3f> > grid;
+	for(int i = 0; i <= segmentsW; ++i)
+	{
+		std::vector<ci::Vec3f> row;
+		grid.push_back( row );
+		for(int j = 0; j <= segmentsH; ++j)
+		{
+			ci::Vec3f pos = ci::Vec3f(((float)i / (float)segmentsW - 0.5f) * width, 0, ((float)j / (float)segmentsH - 0.5f) *  height);
+			pos += offset;
+			grid[i].push_back( pos );
+		}
+	}
+
+	for(int i = 0; i < segmentsW; ++i) {
+		for( int j = 0; j < segmentsH; ++j) {
+			ci::Vec3f a = grid[i  ][j  ];
+			ci::Vec3f b = grid[i+1][j  ];
+			ci::Vec3f c = grid[i  ][j+1];
+			ci::Vec3f d = grid[i+1][j+1];
+
+			ci::ColorA color = ci::ColorA( ci::Rand::randFloat(), ci::Rand::randFloat(), ci::Rand::randFloat(), 0.8 );
+
+			std::cout << a << b << c << d << std::endl;
+
+			// d, b, c, a
+			addQuadToMesh( mesh, a, c, d, b, color );
+		}
+	}
+}
+
+void ZoaDebugFunctions::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, const ci::Vec3f& P1, const ci::Vec3f& P2, const ci::Vec3f& P3, const ci::ColorA& color )
+{
+	ci::Vec3f e0 = P2 - P0;
+	ci::Vec3f e1 = P2 - P1;
+	ci::Vec3f n = e0.cross(e1).normalized();
+
+	mesh.appendVertex( P0 );
+	mesh.appendColorRGBA( color );
+	mesh.appendNormal( n );
+
+	mesh.appendVertex( P1 );
+	mesh.appendColorRGBA( color );
+	mesh.appendNormal( n );
+
+	mesh.appendVertex( P2 );
+	mesh.appendColorRGBA( color );
+	mesh.appendNormal( n );
+
+	mesh.appendVertex( P3 );
+	mesh.appendColorRGBA( color );
+	mesh.appendNormal( n );
+
+	int vert0 = mesh.getNumVertices() - 4;
+	int vert1 = mesh.getNumVertices() - 1;
+	int vert2 = mesh.getNumVertices() - 2;
+	int vert3 = mesh.getNumVertices() - 3;
+
+	mesh.appendTriangle( vert0, vert3, vert1 );
+	mesh.appendTriangle( vert3, vert2, vert1 );
+}
+
+void ZoaDebugFunctions::calculateTriMeshNormals( ci::TriMesh &mesh )
+{
+	const std::vector<ci::Vec3f>& vertices = mesh.getVertices();
+	const std::vector<size_t>& indices = mesh.getIndices();
+
+	// remove all current normals
+	std::vector<ci::Vec3f>& normals = mesh.getNormals();
+	normals.reserve( mesh.getNumVertices() );
+	normals.clear();
+
+	// set the normal for each vertex to (0, 0, 0)
+	for(size_t i=0; i < mesh.getNumVertices(); ++i)
+		normals.push_back( ci::Vec3f::zero() );
+
+	// Average out the normal for each vertex at an index
+	for(size_t i=0; i< mesh.getNumTriangles(); ++i)
+	{
+		ci::Vec3f v0 = vertices[ indices[i * 3] ];
+		ci::Vec3f v1 = vertices[ indices[i * 3 + 1] ];
+		ci::Vec3f v2 = vertices[ indices[i * 3 + 2] ];
+
+		// calculate normal and normalize it, so each of the normals equally contributes to the final result
+		ci::Vec3f e0 = v2 - v0;
+		ci::Vec3f e1 = v2 - v1;
+		ci::Vec3f n = e0.cross(e1).normalized();
+
+		// add the normal to the final result, so we get an average of the normals of each triangle
+		normals[ indices[i * 3] ] += n;
+		normals[ indices[i * 3 + 1] ] += n;
+		normals[ indices[i * 3 + 2] ] += n;
+	}
+
+	// the normals are probably not normalized by now, so make sure their lengths will be 1.0 as expected
+	for(size_t i=0;i< normals.size();++i) {
+		normals[i].normalize();
+	}
+}
+
