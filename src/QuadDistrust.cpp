@@ -18,9 +18,11 @@
 #include "cinder/app/AppBasic.h"
 #include "cinder/app/Renderer.h"
 #include "cinder/gl/gl.h"
+#include "cinder/gl/Material.h"
 #include "cinder/gl/GlslProg.h"
 #include "cinder/gl/Texture.h"
 #include "cinder/gl/Vbo.h"
+#include "cinder/gl/Light.h"
 #include "cinder/ImageIo.h"
 #include "cinder/Utilities.h"
 #include <float.h>
@@ -35,20 +37,13 @@ struct MeshQuad
 	ci::Vec3f velocity;
 };
 
-GLfloat no_mat[]			= { 0.0, 0.0, 0.0, 1.0 };
-GLfloat mat_ambient[]		= { 0.1, 0.1, 0.1, 1.0 };
-GLfloat mat_diffuse[]		= { 0.5, 0.5, 0.5, 1.0 };
-GLfloat mat_specular[]		= { 1.0, 1.0, 1.0, 1.0 };
-GLfloat mat_emission[]		= { 0.3, 0.1, 0.3, 1.0 };
-GLfloat no_shininess[]		= { 0.0 };
-GLfloat mat_shininess[]		= { 128.0 };
-
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
 	void 	prepareSettings( ci::app::AppBasic::Settings *settings );
 	void 	setup();
 	void 	setupCamera();
 	void 	setupQuadSprites();
+	void	setupMaterials();
 
 	void	resize( ci::app::ResizeEvent event );
 	void	mouseDown( ci::app::MouseEvent event );
@@ -61,12 +56,13 @@ public:
 	void 	draw();
 
 	//
-	ci::Matrix44f		_cubeRotation;
 	ci::gl::Texture		_texture;
 	ci::MayaCamUI		_mayaCam;
 	ci::TriMesh*		_particleMesh;
 	ci::TriMesh*		_planeMesh;
 
+	ci::gl::Light*		_light;
+	ci::gl::Material*	_material;
 
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
@@ -78,12 +74,19 @@ public:
 
 	ci::Vec3f	mMouseLoc;
 
-	bool		mDIFFUSE;
-	bool		mAMBIENT;
-	bool		mSPECULAR;
-	bool		mEMISSIVE;
+	bool		_matUseDiffuse;
+	bool		_matUseAmbient;
+	bool		_matUseSpecular;
+	bool		_matUseEmissive;
 	bool		mSHADER;
 	float		mDirectional;
+
+	ci::ColorA	_matNone;
+	ci::ColorA	_matAmbient;
+	ci::ColorA	_matDiffuse;
+	ci::ColorA	_matSpecular;
+	ci::ColorA	_matEmission;
+	float		_matShininess;
 };
 
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
@@ -91,25 +94,13 @@ void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 	settings->setWindowSize( 800, 600 );
 }
 
+
 void QuadDistrustApp::setup()
 {
+	_light = new ci::gl::Light( ci::gl::Light::DIRECTIONAL, 0);
+	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
 
-	_cubeRotation.setToIdentity();
-
-	int colorRange = 128;
-	// Creates a blue-green gradient to use as an OpenGL texture
-	ci::Surface8u surface(256, 256, false);
-	ci::Surface::Iter iter = surface.getIter();
-	while( iter.line() ) {
-		while( iter.pixel() ) {
-			iter.r() = iter.x()/2;
-			iter.g() = iter.x()/2;
-			iter.b() = iter.x()/2;
-		}
-	}
-
-	_texture = ci::gl::Texture( surface );
-
+	setupMaterials();
 	setupQuadSprites();
 
 
@@ -130,20 +121,18 @@ void QuadDistrustApp::setup()
 
 	mMOUSEDOWN		= false;
 
-	mDIFFUSE		= true;
-	mAMBIENT		= true;
-	mSPECULAR		= true;
+	_matUseDiffuse		= true;
+	_matUseAmbient		= true;
+	_matUseSpecular		= true;
 	mSHADER			= true;
-	mEMISSIVE		= false;
+	_matUseEmissive		= false;
 
 	mDirectional	= 1.0f;
 
 
 	mMouseLoc = ci::Vec3f::zero();
 
-	glDisable( GL_TEXTURE_2D );
 
-	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
 	ci::gl::enableAlphaBlending();
@@ -186,6 +175,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
 		pos += ci::Rand::randVec3f() * 50;
+		pos.y = 10000;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
 		float angle = ci::Rand::randFloat( M_PI );
@@ -218,6 +208,18 @@ void QuadDistrustApp::setupCamera()
 	_mayaCam.setCurrentCam( cam );
 }
 
+void QuadDistrustApp::setupMaterials()
+{
+	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
+	_matAmbient			= ci::ColorA( 0.1f, 0.1f, 0.1f, 1.0f );
+	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
+	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
+	_matEmission		= ci::ColorA( 0.1f,0.01f, 0.1f, 1.0f );
+	_matShininess		= 64.0f;
+
+	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT );
+}
+
 
 void QuadDistrustApp::mouseDown( ci::app::MouseEvent event )
 {
@@ -241,41 +243,61 @@ void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 
 void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 {
+	/**
+	 * Toggle material properties
+	 */
+	bool shouldUpdateMaterial = false;
 	if( event.getChar() == 'd' || event.getChar() == 'D' ){
-		mDIFFUSE = ! mDIFFUSE;
+		_matUseDiffuse = ! _matUseDiffuse;
+		_material->setDiffuse( _matUseDiffuse ? _matDiffuse : _matNone );
+		shouldUpdateMaterial = true;
 	}
 	else if( event.getChar() == 'a' || event.getChar() == 'A' ){
-		mAMBIENT = ! mAMBIENT;
+		_matUseAmbient = ! _matUseAmbient;
+		_material->setAmbient( _matUseAmbient ? _matAmbient : _matNone );
+		shouldUpdateMaterial = true;
 	}
 	else if( event.getChar() == 's' || event.getChar() == 'S' ){
-		mSPECULAR = ! mSPECULAR;
+		_matUseSpecular = ! _matUseSpecular;
+		_material->setSpecular( _matUseSpecular ? _matSpecular : _matNone );
+		shouldUpdateMaterial = true;
 	}
 	else if( event.getChar() == 'e' || event.getChar() == 'E' ){
-		mEMISSIVE = ! mEMISSIVE;
+		_matUseEmissive = ! _matUseEmissive;
+		_material->setEmission( _matUseEmissive ? _matEmission : _matNone );
+		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 'g' || event.getChar() == 'G' ){
-		mSHADER = ! mSHADER;
+	else if( event.getChar() == ',' || event.getChar() == '<' ){
+		_matShininess *= 0.5f;
+		if( _matShininess < 1.0f ) // Cap
+			_matShininess = 1.0f;
+		_material->setShininess( _matShininess );
+
+		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 'p' || event.getChar() == 'p' ){
-//		setFullScreen( ! isFullScreen() );
+	else if( event.getChar() == '.' || event.getChar() == '>' ){
+		_matShininess *= 2.0f;
+		if( _matShininess > 128.0f ) // Cap
+			_matShininess = 128.0f;
+		_material->setShininess( _matShininess );
+
+		shouldUpdateMaterial = true;
+	}
+
+
+	// Screenshot
+	if( event.getChar() == 'p' || event.getChar() == 'p' ) {
 		std::ostringstream stringBuffer;
 		stringBuffer << clock();
 		std::string aTimeString = stringBuffer.str();
 		ci::writeImage( ci::getHomeDirectory() + "QuadDistrust/" + aTimeString + ".png", copyWindowSurface() );
 	}
-	else if( event.getChar() == '/' || event.getChar() == '?' ){
-//		mInfoPanel.toggleState();
-	}
-	else if( event.getChar() == ',' || event.getChar() == '<' ){
-		mat_shininess[0] *= 0.5f;
-		if( mat_shininess[0] < 1.0f )
-			mat_shininess[0] = 1.0f;
-	}
-	else if( event.getChar() == '.' || event.getChar() == '>' ){
-		mat_shininess[0] *= 2.0f;
-		if( mat_shininess[0] > 128.0f )
-			mat_shininess[0] = 128.0f;
-	}
+
+	// Update material if it was changed
+	if(shouldUpdateMaterial)
+		_material->apply();
+
+
 }
 
 
@@ -288,13 +310,12 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
-	if( ! mMOUSEDOWN )
-		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
-	else
-		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
+//	if( ! mMOUSEDOWN )
+//		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
+//	else
+//		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
 
-	_cubeRotation.rotate( ci::Vec3f(1, 1, 1), 0.003f );
-
+//	_light->update( _mayaCam.getCamera() )
 	float vertexCount = _particleMesh->getNumVertices();
 	if( vertexCount == 0 ) return;
 
@@ -307,17 +328,11 @@ void QuadDistrustApp::update()
 
 	// something to add a little movement
 	float 		limit = 1000;
-	ci::Vec3f	moveSpeed = ci::Vec3f(0, 5, 0);
+	ci::Vec3f	moveSpeed = ci::Vec3f(0, 0, 0);
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	while(j < i)
 	{
-//		float angle = ci::Rand::randFloat(0.001f, 0.003);
-//		vec[j].rotateY( angle );
-//		vec[j+1].rotateY( angle );
-//		vec[j+2].rotateY( angle );
-//		vec[j+3].rotateY( angle );
-
 		vec[j] += moveSpeed;
 		vec[j+1] += moveSpeed;
 		vec[j+2] += moveSpeed;
@@ -325,17 +340,20 @@ void QuadDistrustApp::update()
 
 		if(vec[j].y > limit )
 		{
-			float angle = ci::Rand::randFloat( (float)M_PI * 2.0f );
 			float radius = 2000;
-			float x = ci::math<float>::cos( angle ) * radius;
+
+			// (if X and Z use the same angle we will create a cylinder
+			float xAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
+			float zAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
+			float rotAngle = ci::Rand::randFloat( (float)M_PI );
+
+			float x = ci::math<float>::cos( xAngle ) * radius;
 			float y = ci::Rand::randFloat() * 600;
-			float z = ci::math<float>::sin( ci::Rand::randFloat( (float)M_PI * 2.0f ) ) * radius;
-
-
-			// Normalize then position of each vector in the quad, and then set at new random location
-			// Otherwise quad will be come zero width
+			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, ci::Rand::randFloat( (float)M_PI) );
+
+			// Modify quad vertices to place at position
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];
@@ -361,77 +379,83 @@ void QuadDistrustApp::draw()
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 
 //	glEnable( GL_LIGHTING );
-	glEnable( GL_LIGHT0 );
+//	glEnable( GL_LIGHT0 );
 	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
 	mMouseLoc -= ( mMouseLoc - ci::Vec3f( mouseX, mouseY, 500.0f ) ) * 0.2f;
 
-	ci::Vec3f camPos = _mayaCam.getCamera().getEyePoint();
-	ci::Vec3f lightOffset = ci::Vec3f(200, 0, 0);
+//	ci::Vec3f camPos = _mayaCam.getCamera().getEyePoint();
+//	ci::Vec3f lightOffset = ci::Vec3f(200, 0, 0);
 //	lightOffset
-
-	float moveX = ci::math<float>::sin( getElapsedSeconds() * 0.5 );
-	GLfloat light_position[] = { camPos.x + moveX*3000, camPos.y, camPos.z, mDirectional };
-	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+//
+//	float moveX = ci::math<float>::sin( getElapsedSeconds() * 0.5 );
+//	GLfloat light_position[] = { camPos.x + moveX*3000, camPos.y, camPos.z, mDirectional };
+//	glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 
 	//
-	GLfloat light_Kd[] = { 0.5f, 0.5f, 0.5f, 1.0 };
-	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
-	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f );
-	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
-	glLightf( GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00015f );
+//	GLfloat light_Kd[] = { 0.5f, 0.5f, 0.5f, 1.0 };
+//	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
+//	glLightf( GL_LIGHT0, GL_CONSTANT_ATTENUATION, 0.5f );
+//	glLightf( GL_LIGHT0, GL_LINEAR_ATTENUATION, 0.0f );
+//	glLightf( GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.00015f );
 
 //	ci::Vec3f dirFromLight	= ci::Rand::randVec3f() * 1000;
 //	float distFromLight	= dirFromLight.length();
 
-	if( mDIFFUSE ){
-		ci::ColorA color( 1.0f, 1.0f, 1.0f, 1.0f );
-		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
-	} else {
-		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
-	}
+//	if( mDIFFUSE ){
+//		ci::ColorA color( 1.0f, 1.0f, 1.0f, 1.0f );
+//		glMaterialfv( GL_FRONT, GL_DIFFUSE,	color );
+//	} else {
+//		glMaterialfv( GL_FRONT, GL_DIFFUSE,	no_mat );
+//	}
 
 
-	if( mAMBIENT ){
-		glMaterialfv( GL_FRONT, GL_AMBIENT,	mat_ambient );
-	} else {
-		glMaterialfv( GL_FRONT, GL_AMBIENT,	no_mat );
-	}
+//	if( mAMBIENT ){
+//		glMaterialfv( GL_FRONT, GL_AMBIENT,	mat_ambient );
+//	} else {
+//		glMaterialfv( GL_FRONT, GL_AMBIENT,	no_mat );
+//	}
+//
+//
+//	if( mSPECULAR ){
+//		glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular );
+//		glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess );
+//	} else {
+//		glMaterialfv( GL_FRONT, GL_SPECULAR, no_mat );
+//		glMaterialfv( GL_FRONT, GL_SHININESS, no_shininess );
+//	}
+//
+//
+//	if( mEMISSIVE ){
+//		glMaterialfv( GL_FRONT, GL_EMISSION, mat_emission );
+//	} else {
+//		glMaterialfv( GL_FRONT, GL_EMISSION, no_mat );
+//	}
 
+	GLfloat light_Kd[] = { 0.5f, 0.5f, 0.5f, 1.0 };
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, light_Kd);
+	_light->enable();
 
-	if( mSPECULAR ){
-		glMaterialfv( GL_FRONT, GL_SPECULAR, mat_specular );
-		glMaterialfv( GL_FRONT, GL_SHININESS, mat_shininess );
-	} else {
-		glMaterialfv( GL_FRONT, GL_SPECULAR, no_mat );
-		glMaterialfv( GL_FRONT, GL_SHININESS, no_shininess );
-	}
-
-
-	if( mEMISSIVE ){
-		glMaterialfv( GL_FRONT, GL_EMISSION, mat_emission );
-	} else {
-		glMaterialfv( GL_FRONT, GL_EMISSION, no_mat );
-	}
-
-
+	// BEGIN SHADER
 	if( mSHADER ){
 		mShader.bind();
 		mShader.uniform( "NumEnabledLights", 1 );
 	}
 
 //	ci::gl::enableAlphaBlending();
-	float cubeSize = 25;
 	ci::gl::draw( *_particleMesh );
-	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
-	if( mSHADER ) mShader.unbind();
 
-	glColor3f( 1, 1, 1 );
+	float cubeSize = 25;
+	ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
+
+	// END SHADER
+	if(mSHADER)
+		mShader.unbind();
+
+	// Draw floor
 	ci::gl::enableWireframe();
 	ci::gl::draw( *_planeMesh );
 	ci::gl::disableWireframe();
-//	ZoaDebugFunctions::drawFloorPlane();
-//	ZoaDebugFunctions::trimeshDrawNormals( *_planeMesh );
 }
 
 CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(1) )
