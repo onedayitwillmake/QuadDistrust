@@ -1,30 +1,28 @@
-varying vec3 normal, lightDir, eyeVec;
+varying vec3 normal;
+varying vec4 pos;
 
-void main (void)
-{
-	vec4 final_color = 
-	(gl_FrontLightModelProduct.sceneColor * gl_FrontMaterial.ambient) + 
-	(gl_LightSource[0].ambient * gl_FrontMaterial.ambient);
-							
-	vec3 N = normalize(normal);
-	vec3 L = normalize(lightDir);
-	
-	float lambertTerm = dot(N,L);
-	
-	if(lambertTerm > 0.0)
-	{
-		final_color += gl_LightSource[0].diffuse * 
-		               gl_FrontMaterial.diffuse * 
-					   lambertTerm;	
-		
-		vec3 E = normalize(eyeVec);
-		vec3 R = reflect(-L, N);
-		float specular = pow( max(dot(R, E), 0.0), 
-		                 gl_FrontMaterial.shininess );
-		final_color += gl_LightSource[0].specular * 
-		               gl_FrontMaterial.specular * 
-					   specular;	
-	}
+void main() {
+  vec4 color = gl_FrontMaterial.diffuse;
+  vec4 matspec = gl_FrontMaterial.specular;
+  float shininess = gl_FrontMaterial.shininess;
+  vec4 lightspec = gl_LightSource[0].specular;
+  vec4 lpos = gl_LightSource[0].position;
+  vec4 s = -normalize(pos-lpos); 
 
-	gl_FragColor = final_color;			
+  vec3 light = s.xyz;
+  vec3 n = normalize(normal);
+  vec3 r = -reflect(light, n);
+  r = normalize(r);  
+  vec3 v = -pos.xyz;
+  v = normalize(v);
+    
+  vec4 diffuse  = color * max(0.0, dot(n, s.xyz)) *             gl_LightSource[0].diffuse;
+  vec4 specular;
+  if (shininess != 0.0) {
+    specular = lightspec * matspec * pow(max(0.0,                 dot(r, v)), shininess);
+  } else {
+    specular = vec4(0.0, 0.0, 0.0, 0.0);
+  }
+
+  gl_FragColor = gl_FrontMaterial.ambient + diffuse + specular + gl_FrontMaterial.emission;
 }

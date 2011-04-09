@@ -37,6 +37,7 @@
 struct IndexedQuad
 {
 	size_t index;
+	float skyLimit;
 	ci::Vec3f velocity;
 	ci::Vec3f acceleration;
 };
@@ -133,7 +134,7 @@ void QuadDistrustApp::setup()
 
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
 
 	getFocus();
 }
@@ -185,7 +186,7 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.index = i;
 		iq.velocity = ci::Vec3f::zero();
 		iq.acceleration = ci::Vec3f::zero();
-
+		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
 		_indexedQuads.push_back( iq );
 	}
 
@@ -332,7 +333,7 @@ void QuadDistrustApp::update()
 
 	if(!didTest) {
 		perlin.setSeed( clock() );
-		for(float i = 0; i < TWO_PI; i+=0.01f){
+		for(float i = 0; i < TWO_PI*10; i+=0.01f){
 			std::cout << sinCosLUT._sin( i/TWO_PI ) << std::endl << ci::math<float>::sin( i/TWO_PI ) << std::endl << std::endl;
 		}
 		didTest = true;
@@ -359,40 +360,33 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 0.2f;
-	float grav = 0.0f;
+	float maxSpeed = 2.0f;
+	float grav = 0;
 	float maxVel = 20.0f;
 	float nZ = getElapsedSeconds() * 0.005;
-	mCounter += 0.01;
+	mCounter += 0.000005;
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
 		ci::Vec3f noisePosition = vec[j];
-		noisePosition *= 0.0005f;
-		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z + mCounter);
-		nNoise *= TWO_PI * 2;
+		noisePosition *= 0.001f;
 
-		iq->velocity.x += cosf(nNoise) * TWO_PI * maxSpeed;
-		iq->velocity.y += (nNoise/TWO_PI * 2) * 2;
-		iq->velocity.z += sinf(nNoise) * TWO_PI * maxSpeed;
-//		ci::Vec3f noise = perlin.dfBm( noisePosition  );
-//		//noise.normalize();
-//		noise *= maxSpeed;
+		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
+		nNoise *= TWO_PI;
 
-		// Apply noise
-//		iq->velocity += noise;
+		iq->velocity.x += cosf(nNoise) * maxSpeed;
+		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed; // Apply gravity
+		iq->velocity.z += sinf(nNoise) * maxSpeed;
 
+		// Cap
 		float velLength = iq->velocity.lengthSquared() + 0.001f;
 		if( velLength > maxVel*maxVel ){
 			iq->velocity.normalize();
 			iq->velocity *= maxVel;
 		}
 
-		// Apply gravity
-		iq->velocity.y += grav;
-
-
 		moveSpeed = iq->velocity;
+		moveSpeed.y += grav;
 		vec[j] += moveSpeed;
 		vec[j+1] += moveSpeed;
 		vec[j+2] += moveSpeed;
@@ -411,9 +405,9 @@ void QuadDistrustApp::update()
 		partIt->mVelocity += deriv2 * SPEED;
 	}
 		 */
-		iq->velocity *= 0.98f;
+		iq->velocity *= 0.95f;
 
-		if(vec[j].lengthSquared() > 2000 * 2000 * 1.5)
+		if(vec[j].y > iq->skyLimit)
 		{
 			float radius = 2000;
 

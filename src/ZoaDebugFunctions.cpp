@@ -73,6 +73,8 @@ void ZoaDebugFunctions::createQuadAtPosition( ci::Vec3f position,
 void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float width, float height, int segmentsW, int segmentsH, float noiseScale = 0 )
 {
 	std::vector< std::vector<ci::Vec3f> > grid;
+
+	// Create W*H vertices
 	for(int i = 0; i <= segmentsW; ++i)
 	{
 		std::vector<ci::Vec3f> row;
@@ -91,6 +93,7 @@ void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float 
 		}
 	}
 
+	// Use 2D array-ness to create a quad
 	for(int i = 0; i < segmentsW; ++i) {
 		for( int j = 0; j < segmentsH; ++j) {
 			ci::Vec3f a = grid[i  ][j  ];
@@ -98,7 +101,8 @@ void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float 
 			ci::Vec3f c = grid[i  ][j+1];
 			ci::Vec3f d = grid[i+1][j+1];
 
-			ci::ColorA color = ci::ColorA( ci::Rand::randFloat(), ci::Rand::randFloat(), ci::Rand::randFloat(), 0.8 );
+			float gray =  ci::Rand::randFloat() * 0.75 + 0.25;
+			ci::ColorA color = ci::ColorA(gray, gray, gray, 0.6);
 
 //			std::cout << a << b << c << d << std::endl;
 
