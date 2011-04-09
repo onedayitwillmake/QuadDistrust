@@ -109,6 +109,7 @@ void QuadDistrustApp::setup()
 	setupMaterials();
 	setupQuadSprites();
 
+	ci::Rand::randSeed( clock() );
 	_simplexNoise = new ofxSimplex();
 
 
@@ -327,7 +328,7 @@ void QuadDistrustApp::update()
 	static bool didTest = false;
 	static ofxSinCosLUT sinCosLUT;
 	static ci::Perlin	perlin;
-	static float mCounter = 0.0f;
+	static float mCounter = ci::Rand::randFloat() * 1000;
 
 	if(!didTest) {
 		perlin.setSeed( clock() );
@@ -358,26 +359,30 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 2.5f;
-	float grav = 2.0f;
-	float maxVel = 15.0f;
+	float maxSpeed = 0.2f;
+	float grav = 0.0f;
+	float maxVel = 20.0f;
 	float nZ = getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
 		ci::Vec3f noisePosition = vec[j];
-		noisePosition *= 0.001f;
-		noisePosition.z = noisePosition.z*0.8 + mCounter;
+		noisePosition *= 0.0005f;
+		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z + mCounter);
+		nNoise *= TWO_PI * 2;
 
-		ci::Vec3f noise = perlin.dfBm( noisePosition  );
-		//noise.normalize();
-		noise *= maxSpeed;
+		iq->velocity.x += cosf(nNoise) * TWO_PI * maxSpeed;
+		iq->velocity.y += (nNoise/TWO_PI * 2) * 2;
+		iq->velocity.z += sinf(nNoise) * TWO_PI * maxSpeed;
+//		ci::Vec3f noise = perlin.dfBm( noisePosition  );
+//		//noise.normalize();
+//		noise *= maxSpeed;
 
 		// Apply noise
-		iq->velocity += noise;
+//		iq->velocity += noise;
 
-		float velLength = iq->velocity.lengthSquared() + 0.1f;
+		float velLength = iq->velocity.lengthSquared() + 0.001f;
 		if( velLength > maxVel*maxVel ){
 			iq->velocity.normalize();
 			iq->velocity *= maxVel;
@@ -408,7 +413,7 @@ void QuadDistrustApp::update()
 		 */
 		iq->velocity *= 0.98f;
 
-		if(vec[j].lengthSquared() > 2000 * 2000 * 2)
+		if(vec[j].lengthSquared() > 2000 * 2000 * 1.5)
 		{
 			float radius = 2000;
 
@@ -425,7 +430,7 @@ void QuadDistrustApp::update()
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
 			// Modify quad vertices to place at position
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, rotAngle );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 8, 0.5, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];
@@ -442,7 +447,7 @@ void QuadDistrustApp::update()
 		++indexQuadIterator;
 	}
 
-	mAngle += 0.05f;
+	mAngle += 0.01f;
 }
 
 void QuadDistrustApp::draw()
@@ -466,7 +471,7 @@ void QuadDistrustApp::draw()
 		// Move light
 			float r = 2000;
 			float x = ci::math<float>::cos( mAngle ) * r;
-			float y = ci::math<float>::sin( getElapsedSeconds() * 0.1 ) * 500;
+			float y = ci::math<float>::sin( getElapsedSeconds() * 0.01 ) * 500;
 			float z = ci::math<float>::sin( mAngle ) * r;
 //			movedOnce = true;
 			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f::zero() );
