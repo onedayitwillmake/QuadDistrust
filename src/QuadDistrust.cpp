@@ -32,6 +32,7 @@
 #include "gl.h"
 #include "ofxSimplex.h"
 #include "ofxSinCosLUT.h"
+#include "cinder/Perlin.h"
 
 struct IndexedQuad
 {
@@ -325,7 +326,11 @@ void QuadDistrustApp::update()
 {
 	static bool didTest = false;
 	static ofxSinCosLUT sinCosLUT;
+	static ci::Perlin	perlin;
+	static float mCounter = 0.0f;
+
 	if(!didTest) {
+		perlin.setSeed( clock() );
 		for(float i = 0; i < TWO_PI; i+=0.01f){
 			std::cout << sinCosLUT._sin( i/TWO_PI ) << std::endl << ci::math<float>::sin( i/TWO_PI ) << std::endl << std::endl;
 		}
@@ -348,29 +353,39 @@ void QuadDistrustApp::update()
 	j = 0;
 
 	// something to add a little movement
-	float 		limit = 1000;
+	float 		limit = 2000;
 	ci::Vec3f	moveSpeed = ci::Vec3f(0, 0.1, 0);
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 1.0f;
-	float grav = 1.0f;
-	float nZ = getElapsedSeconds()*0.01f;
+	float maxSpeed = 2.5f;
+	float grav = 2.0f;
+	float maxVel = 15.0f;
+	float nZ = getElapsedSeconds() * 0.005;
+	mCounter += 0.01;
 	while(j < i)
 	{
-		//simplex->noise((float)i/div, (float)mouseX/div, (float)ofGetFrameNum()/div, (float)ofGetFrameNum()/200);
-		ci::Vec3f np = vec[j];
-		np *= 0.01f;
-
-		float nNoise = _simplexNoise->noiseuf( np.x, np.y, np.z, nZ);
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
-	//	iq->velocity += nNo
-//		iq->velocity.x += nNoise.x;
+		ci::Vec3f noisePosition = vec[j];
+		noisePosition *= 0.001f;
+		noisePosition.z = noisePosition.z*0.8 + mCounter;
 
-		iq->velocity.x += sinCosLUT._cos(nNoise) * TWO_PI * maxSpeed;
-		iq->velocity.y += 1;
-		iq->velocity.z += ci::Rand::randFloat(-maxSpeed, maxSpeed);
-//		iq->velocity +=
+		ci::Vec3f noise = perlin.dfBm( noisePosition  );
+		//noise.normalize();
+		noise *= maxSpeed;
+
+		// Apply noise
+		iq->velocity += noise;
+
+		float velLength = iq->velocity.lengthSquared() + 0.1f;
+		if( velLength > maxVel*maxVel ){
+			iq->velocity.normalize();
+			iq->velocity *= maxVel;
+		}
+
+		// Apply gravity
+		iq->velocity.y += grav;
+
 
 		moveSpeed = iq->velocity;
 		vec[j] += moveSpeed;
@@ -378,9 +393,22 @@ void QuadDistrustApp::update()
 		vec[j+2] += moveSpeed;
 		vec[j+3] += moveSpeed;
 
-		iq->velocity *= 0.95f;
+		/*
+		 * 	Vec3f noise = mPerlin.dfBm( Vec3f( particleIt->mLoc[0].x, particleIt->mLoc[0].y, particleIt->mLoc[0].z ) * 0.01f + Vec3f( 0, 0, counter / 100.0f ) );
+		noise.normalize();
+		noise *= mMagnitude;
 
-		if(vec[j].y > limit )
+		// Add some perlin noise to the velocity
+		Vec3f deriv = mPerlin.dfBm( Vec3f( partIt->mPosition.x, partIt->mPosition.y, mAnimationCounter ) * 0.001f );
+		partIt->mZ = deriv.z;
+		Vec2f deriv2( deriv.x, deriv.y );
+		deriv2.normalize();
+		partIt->mVelocity += deriv2 * SPEED;
+	}
+		 */
+		iq->velocity *= 0.98f;
+
+		if(vec[j].lengthSquared() > 2000 * 2000 * 2)
 		{
 			float radius = 2000;
 
@@ -414,7 +442,7 @@ void QuadDistrustApp::update()
 		++indexQuadIterator;
 	}
 
-	mAngle += 0.005f;
+	mAngle += 0.05f;
 }
 
 void QuadDistrustApp::draw()
@@ -436,9 +464,9 @@ void QuadDistrustApp::draw()
 	if(!movedOnce)
 	{
 		// Move light
-			float r = 1000;
+			float r = 2000;
 			float x = ci::math<float>::cos( mAngle ) * r;
-			float y = ci::math<float>::sin( getElapsedSeconds() * 0.0 ) * 500.0 + 500.0;
+			float y = ci::math<float>::sin( getElapsedSeconds() * 0.1 ) * 500;
 			float z = ci::math<float>::sin( mAngle ) * r;
 //			movedOnce = true;
 			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f::zero() );
