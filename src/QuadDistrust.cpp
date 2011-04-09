@@ -30,11 +30,14 @@
 #include "ZoaDebugFunctions.h"
 #include "Resources.h"
 #include "gl.h"
+#include "ofxSimplex.h"
+#include "ofxSinCosLUT.h"
 
 struct IndexedQuad
 {
 	size_t index;
 	ci::Vec3f velocity;
+	ci::Vec3f acceleration;
 };
 
 class QuadDistrustApp : public ci::app::AppBasic {
@@ -67,6 +70,7 @@ public:
 
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
+	ofxSimplex*			_simplexNoise;
 
 	float		mouseX;
 	float		mouseY;
@@ -103,6 +107,8 @@ void QuadDistrustApp::setup()
 	mDirectional = 1.0f;
 	setupMaterials();
 	setupQuadSprites();
+
+	_simplexNoise = new ofxSimplex();
 
 
 	try {
@@ -176,6 +182,7 @@ void QuadDistrustApp::setupQuadSprites()
 		IndexedQuad iq;
 		iq.index = i;
 		iq.velocity = ci::Vec3f::zero();
+		iq.acceleration = ci::Vec3f::zero();
 
 		_indexedQuads.push_back( iq );
 	}
@@ -316,6 +323,14 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
+	static bool didTest = false;
+	static ofxSinCosLUT sinCosLUT;
+	if(!didTest) {
+		for(float i = 0; i < TWO_PI; i+=0.01f){
+			std::cout << sinCosLUT._sin( i/TWO_PI ) << std::endl << ci::math<float>::sin( i/TWO_PI ) << std::endl << std::endl;
+		}
+		didTest = true;
+	}
 	if( ! mMOUSEDOWN )
 		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
 	else
@@ -337,16 +352,39 @@ void QuadDistrustApp::update()
 	ci::Vec3f	moveSpeed = ci::Vec3f(0, 0.1, 0);
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
+	int indexQuadIterator = 0;
+	float maxSpeed = 1.0f;
+	float grav = 1.0f;
+	float nZ = getElapsedSeconds()*0.01f;
 	while(j < i)
 	{
+		//simplex->noise((float)i/div, (float)mouseX/div, (float)ofGetFrameNum()/div, (float)ofGetFrameNum()/200);
+		ci::Vec3f np = vec[j];
+		np *= 0.01f;
+
+		float nNoise = _simplexNoise->noiseuf( np.x, np.y, np.z, nZ);
+		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
+	//	iq->velocity += nNo
+//		iq->velocity.x += nNoise.x;
+
+		iq->velocity.x += sinCosLUT._cos(nNoise) * TWO_PI * maxSpeed;
+		iq->velocity.y += 1;
+		iq->velocity.z += ci::Rand::randFloat(-maxSpeed, maxSpeed);
+//		iq->velocity +=
+
+		moveSpeed = iq->velocity;
 		vec[j] += moveSpeed;
 		vec[j+1] += moveSpeed;
 		vec[j+2] += moveSpeed;
 		vec[j+3] += moveSpeed;
 
+		iq->velocity *= 0.95f;
+
 		if(vec[j].y > limit )
 		{
 			float radius = 2000;
+
+			iq->velocity = ci::Vec3f::zero();
 
 			// (if X and Z use the same angle we will create a cylinder
 			float xAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
@@ -373,6 +411,7 @@ void QuadDistrustApp::update()
 
 		// go to the next triangle pair
 		j+=4;
+		++indexQuadIterator;
 	}
 
 	mAngle += 0.005f;
@@ -405,7 +444,7 @@ void QuadDistrustApp::draw()
 			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f::zero() );
 			//
 			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.5 ) ) * 0.989f + 0.1f;
-			std::cout << dir << std::endl;
+//			std::cout << dir << std::endl;
 			GLfloat light_position[] = { x, y, z, dir };
 			glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}

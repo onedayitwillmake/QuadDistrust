@@ -27,7 +27,7 @@
 							<tool id="cdt.managedbuild.tool.macosx.c.linker.macosx.base.1372902259" name="MacOS X C Linker" superClass="cdt.managedbuild.tool.macosx.c.linker.macosx.base"/>
 							<tool id="cdt.managedbuild.tool.macosx.cpp.linker.macosx.base.293963466" name="MacOS X C++ Linker" superClass="cdt.managedbuild.tool.macosx.cpp.linker.macosx.base">
 								<option id="macosx.cpp.link.option.paths.606959176" name="Library search path (-L)" superClass="macosx.cpp.link.option.paths"/>
-								<option id="macosx.cpp.link.option.libs.1593998636" name="Libraries (-l)" superClass="macosx.cpp.link.option.libs" valueType="libs"/>
+								<option id="macosx.cpp.link.option.libs.1593998636" name="Libraries (-l)" superClass="macosx.cpp.link.option.libs"/>
 								<option id="macosx.cpp.link.option.other.93030701" name="Other options (-Xlinker [option])" superClass="macosx.cpp.link.option.other" valueType="stringList">
 									<listOptionValue builtIn="false" value="${CINDER_PATH}/lib/libcinder_d.a"/>
 								</option>
@@ -49,6 +49,7 @@
 									<listOptionValue builtIn="false" value="${CINDER_PATH}/include"/>
 									<listOptionValue builtIn="false" value="&quot;${ProjDirPath}/includes&quot;"/>
 									<listOptionValue builtIn="false" value="/System/Library/Frameworks/OpenGL.framework/Versions/A/Headers"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/QuadDistrust/thirdparty/ruiNoise/includes}&quot;"/>
 								</option>
 								<option id="gnu.cpp.compiler.option.optimization.level.960717740" name="Optimization Level" superClass="gnu.cpp.compiler.option.optimization.level" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.other.other.1735799906" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -arch i386" valueType="string"/>
@@ -62,6 +63,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="src"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="thirdparty/ruiNoise/src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

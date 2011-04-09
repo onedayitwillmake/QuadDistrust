@@ -100,7 +100,7 @@ void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float 
 
 			ci::ColorA color = ci::ColorA( ci::Rand::randFloat(), ci::Rand::randFloat(), ci::Rand::randFloat(), 0.8 );
 
-			std::cout << a << b << c << d << std::endl;
+//			std::cout << a << b << c << d << std::endl;
 
 			// d, b, c, a
 			addQuadToMesh( mesh, a, c, d, b, color );
