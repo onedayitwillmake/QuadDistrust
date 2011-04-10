@@ -5,17 +5,14 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
 ../src/QuadDistrust.cpp \
-../src/Simplex.cpp \
 ../src/ZoaDebugFunctions.cpp 
 
 OBJS += \
 ./src/QuadDistrust.o \
-./src/Simplex.o \
 ./src/ZoaDebugFunctions.o 
 
 CPP_DEPS += \
 ./src/QuadDistrust.d \
-./src/Simplex.d \
 ./src/ZoaDebugFunctions.d 
 
 

@@ -154,7 +154,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float count = 10000;
+	float count = 5000;
 
 	_indexedQuads.reserve( count );
 
@@ -221,7 +221,7 @@ void QuadDistrustApp::setupMaterials()
 	_matUseEmissive		= false;
 
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
-	_matAmbient			= ci::ColorA( 0.1f, 0.1f, 0.1f, 1.0f );
+	_matAmbient			= ci::ColorA( 0.05f, 0.05f, 0.05f, 1.0f );
 	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
 	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
 	_matEmission		= ci::ColorA( 0.1f,0.01f, 0.1f, 1.0f );
@@ -320,7 +320,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 6000);
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 4500);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -360,19 +360,19 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 2.0f;
+	float maxSpeed = 0.1f;
 	float grav = 0;
-	float maxVel = 20.0f;
+	float maxVel = 5.0f;
 	float nZ = getElapsedSeconds() * 0.005;
-	mCounter += 0.000005;
+	mCounter += 0.01;
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
 		ci::Vec3f noisePosition = vec[j];
-		noisePosition *= 0.001f;
+		noisePosition *= 0.0005f;
 
 		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
-		nNoise *= TWO_PI;
+		nNoise *= TWO_PI*2;
 
 		iq->velocity.x += cosf(nNoise) * maxSpeed;
 		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed; // Apply gravity
@@ -405,7 +405,7 @@ void QuadDistrustApp::update()
 		partIt->mVelocity += deriv2 * SPEED;
 	}
 		 */
-		iq->velocity *= 0.95f;
+		iq->velocity *= 0.98f;
 
 		if(vec[j].y > iq->skyLimit)
 		{
@@ -419,12 +419,12 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 600;
+			float y = ci::Rand::randFloat() * 200;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
 			// Modify quad vertices to place at position
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 8, 0.5, rotAngle );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];
