@@ -154,7 +154,7 @@ void QuadDistrustApp::setupQuadSprites()
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float count = 5000;
+	float count = 10000;
 
 	_indexedQuads.reserve( count );
 
@@ -172,7 +172,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
 		pos += ci::Rand::randVec3f() * 50;
-		pos.y = 10000;
+		//pos.y = 10000;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
 		float angle = ci::Rand::randFloat( M_PI );

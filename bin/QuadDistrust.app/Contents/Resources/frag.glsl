@@ -13,16 +13,17 @@ void main() {
   vec3 n = normalize(normal);
   vec3 r = -reflect(light, n);
   r = normalize(r);  
-  vec3 v = -pos.xyz;
+  vec3 v = pos.xyz;
   v = normalize(v);
     
   vec4 diffuse  = color * max(0.0, dot(n, s.xyz)) *             gl_LightSource[0].diffuse;
   vec4 specular;
   if (shininess != 0.0) {
-    specular = lightspec * matspec * pow(max(0.0,                 dot(r, v)), shininess);
+    specular = lightspec * matspec * pow(max(0.0, dot(r, v)), 0.1);
   } else {
     specular = vec4(0.0, 0.0, 0.0, 0.0);
   }
+
 
   gl_FragColor = gl_FrontMaterial.ambient + diffuse + specular + gl_FrontMaterial.emission;
 }

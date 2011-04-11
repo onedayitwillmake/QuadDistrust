@@ -102,7 +102,7 @@ void ZoaDebugFunctions::createPlane( ci::TriMesh& mesh, ci::Vec3f offset, float 
 			ci::Vec3f d = grid[i+1][j+1];
 
 			float gray =  ci::Rand::randFloat() * 0.75 + 0.25;
-			ci::ColorA color = ci::ColorA(gray, gray, gray, 0.6);
+			ci::ColorA color = ci::ColorA(gray, gray, gray, 0.5);
 
 //			std::cout << a << b << c << d << std::endl;
 
