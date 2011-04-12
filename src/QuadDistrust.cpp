@@ -34,10 +34,25 @@
 #include "ofxSinCosLUT.h"
 #include "cinder/Perlin.h"
 
+#define distance2(a,b,c) {\
+  float tmp;\
+  c = a[0] - b[0];\
+  c = c * c;\
+  tmp = a[1] - b[1];\
+  c += tmp * tmp;\
+  tmp = a[2] - b[2];\
+  c += tmp * tmp;\
+}
+
+
+#define distance(a,b,c) { float d; distance2(a,b,d); c = (float)sqrt((double)d); }
+
 struct IndexedQuad
 {
 	size_t index;
 	float skyLimit;
+	float mass;
+	ci::Vec3f position;
 	ci::Vec3f velocity;
 	ci::Vec3f acceleration;
 };
@@ -66,6 +81,9 @@ public:
 	ci::TriMesh*		_particleMesh;
 	ci::TriMesh*		_planeMesh;
 	std::vector< IndexedQuad > _indexedQuads;
+
+	// GRAVITY
+	std::vector< ci::Vec3f >	_forces;
 
 	ci::gl::Light*		_light;
 	ci::gl::Material*	_material;
@@ -96,6 +114,30 @@ public:
 	bool		_matUseEmissive;
 };
 
+uint_fast32_t approx_distance( int_fast32_t dx, int_fast32_t dy )
+{
+	uint_fast32_t min, max, approx;
+
+   if ( dx < 0 ) dx = -dx;
+   if ( dy < 0 ) dy = -dy;
+
+   if ( dx < dy )
+   {
+      min = dx;
+      max = dy;
+   } else {
+      min = dy;
+      max = dx;
+   }
+
+   approx = ( max * 1007 ) + ( min * 441 );
+   if ( max < ( min << 4 ))
+      approx -= ( max * 40 );
+
+   // add 512 for proper rounding
+   return (( approx + 512 ) >> 10 );
+}
+
 void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 {
 	settings->setWindowSize( 1024, 768 );
@@ -124,17 +166,28 @@ void QuadDistrustApp::setup()
 		std::cout << "Unable to load shader" << std::endl;
 	}
 
-//	// GL Stuff
+	// Mouse
 	mMouseLoc 	= ci::Vec3f::zero();
 	mMOUSEDOWN	= false;
 
-	ci::gl::enableDepthWrite();
-	ci::gl::enableDepthRead();
-	ci::gl::enableAlphaBlending();
+	// Forces
+	int forceCount = 8;
+	for(int i = 0; i < forceCount; i++) {
+		ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+		pos.y = fabs(pos.y);
+//		pos.normalize();
+		_forces.push_back( pos );
+	}
 
+	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
 	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
+
+	// Setup OpenGL
+	ci::gl::enableDepthWrite();
+	ci::gl::enableDepthRead();
+	ci::gl::enableAlphaBlending();
 
 	getFocus();
 }
@@ -187,6 +240,8 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.velocity = ci::Vec3f::zero();
 		iq.acceleration = ci::Vec3f::zero();
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
+		iq.mass = ci::Rand::randFloat(0.98, 1.1);
+
 		_indexedQuads.push_back( iq );
 	}
 
@@ -312,8 +367,6 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	// Update material if it was changed
 	if(shouldUpdateMaterial)
 		_material->apply();
-
-
 }
 
 
@@ -333,9 +386,9 @@ void QuadDistrustApp::update()
 
 	if(!didTest) {
 		perlin.setSeed( clock() );
-		for(float i = 0; i < TWO_PI*10; i+=0.01f){
-			std::cout << sinCosLUT._sin( i/TWO_PI ) << std::endl << ci::math<float>::sin( i/TWO_PI ) << std::endl << std::endl;
-		}
+//		for(float i = 0; i < TWO_PI*10; i+=0.01f){
+//			std::cout << sinCosLUT._sin( i/TWO_PI ) << std::endl << ci::math<float>::sin( i/TWO_PI ) << std::endl << std::endl;
+//		}
 		didTest = true;
 	}
 	if( ! mMOUSEDOWN )
@@ -361,30 +414,61 @@ void QuadDistrustApp::update()
 
 	int indexQuadIterator = 0;
 	float maxSpeed = 0.1f;
-	float grav = 0;
+	float grav = 0.3;
 	float maxVel = 5.0f;
-	float nZ = getElapsedSeconds() * 0.005;
+	float nZ = nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
+
+
+	float force = 0.25f;
+	float maxDist = 1000.0f;
+	float maxDistSQ = maxDist*maxDist;
+
+	ci::Vec3f gravCenter = ci::Vec3f::zero();
+
+	size_t iglen = _forces.size();
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
 		ci::Vec3f noisePosition = vec[j];
-		noisePosition *= 0.0005f;
 
+
+		// Update forces
+		for(int ig = 0; ig < iglen; ig++ )
+		{
+			ci::Vec3f delta = _forces[ig]-iq->position;
+			float s = delta.lengthSquared();
+			if( s > 10.0f && s < maxDistSQ ) // is within range
+			{
+				// normalize
+				float dist = ci::math<float>::sqrt( s );
+				float invS = (1.0f) / dist;
+				delta *= invS;
+
+				// Apply inverse force
+				float inverseForce = (1.0-(dist/maxDist)) * force * iq->mass;
+				delta *= inverseForce;
+				iq->velocity += delta;
+
+//				nZ += 0.005f;
+			}
+		}
+
+		// Apply simplex noise
+		iq->position = vec[j];
+		noisePosition *= 0.0005f;
 		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
 		nNoise *= TWO_PI*2;
 
-		iq->velocity.x += cosf(nNoise) * maxSpeed;
-		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed; // Apply gravity
-		iq->velocity.z += sinf(nNoise) * maxSpeed;
+		iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
+		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed * nZ; // Apply gravity
+		iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
+
 
 		// Cap
-		float velLength = iq->velocity.lengthSquared() + 0.001f;
-		if( velLength > maxVel*maxVel ){
-			iq->velocity.normalize();
-			iq->velocity *= maxVel;
-		}
+		iq->velocity.limit( maxVel );
 
+		// Apply velocity to positions
 		moveSpeed = iq->velocity;
 		moveSpeed.y += grav;
 		vec[j] += moveSpeed;
@@ -392,20 +476,10 @@ void QuadDistrustApp::update()
 		vec[j+2] += moveSpeed;
 		vec[j+3] += moveSpeed;
 
-		/*
-		 * 	Vec3f noise = mPerlin.dfBm( Vec3f( particleIt->mLoc[0].x, particleIt->mLoc[0].y, particleIt->mLoc[0].z ) * 0.01f + Vec3f( 0, 0, counter / 100.0f ) );
-		noise.normalize();
-		noise *= mMagnitude;
 
-		// Add some perlin noise to the velocity
-		Vec3f deriv = mPerlin.dfBm( Vec3f( partIt->mPosition.x, partIt->mPosition.y, mAnimationCounter ) * 0.001f );
-		partIt->mZ = deriv.z;
-		Vec2f deriv2( deriv.x, deriv.y );
-		deriv2.normalize();
-		partIt->mVelocity += deriv2 * SPEED;
-	}
-		 */
+
 		iq->velocity *= 0.98f;
+
 
 		if(vec[j].y > iq->skyLimit)
 		{
@@ -444,6 +518,8 @@ void QuadDistrustApp::update()
 	mAngle += 0.01f;
 }
 
+
+
 void QuadDistrustApp::draw()
 {
 	static bool movedOnce = false;
@@ -468,11 +544,13 @@ void QuadDistrustApp::draw()
 			float y = ci::math<float>::sin( getElapsedSeconds() * 0.01 ) * 500;
 			float z = ci::math<float>::sin( mAngle ) * r;
 //			movedOnce = true;
-			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f::zero() );
+//			_light->lookAt( , ci::Vec3f::zero() );
 			//
 			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.5 ) ) * 0.989f + 0.1f;
+
+			ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 //			std::cout << dir << std::endl;
-			GLfloat light_position[] = { x, y, z, dir };
+			GLfloat light_position[] = { camEye.x, camEye.y, camEye.z, dir };
 			glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
 
@@ -483,18 +561,29 @@ void QuadDistrustApp::draw()
 	mShader.uniform( "NumEnabledLights", 1 );
 		ci::gl::draw( *_particleMesh );
 		float cubeSize = 25;
-		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(cubeSize, cubeSize, cubeSize) );
+		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
 	mShader.unbind();
 	// END SHADER
 
-
 	_light->disable();
 	glColor3f( 1.0f, 1.0f, 0.1f );
-//	ci::gl::drawFrustum( _light->getShadowCamera() );
+	ci::gl::drawFrustum( _light->getShadowCamera() );
 	// Draw floor
 	ci::gl::enableWireframe();
 	ci::gl::draw( *_planeMesh );
+
+	size_t len = _forces.size();
+	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
+	for(int i = 0; i < len; i++ ) {
+		ci::gl::drawCube( _forces[i], forceCubeSize );
+
+		if(ci::Rand::randFloat() < 0.01) {
+			ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+			pos.y = fabs(pos.y);
+			_forces[i] = pos;
+		}
+	}
 	ci::gl::disableWireframe();
 }
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(1) )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(0) )

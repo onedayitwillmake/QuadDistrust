@@ -19,7 +19,7 @@ void main() {
   vec4 diffuse  = color * max(0.0, dot(n, s.xyz)) *             gl_LightSource[0].diffuse;
   vec4 specular;
   if (shininess != 0.0) {
-    specular = lightspec * matspec * pow(max(0.0, dot(r, v)), 0.1);
+    specular = lightspec * matspec * pow(max(0.0, dot(r, v)), shininess);
   } else {
     specular = vec4(0.0, 0.0, 0.0, 0.0);
   }
