@@ -273,16 +273,18 @@ void QuadDistrustApp::setupMaterials()
 	_matUseDiffuse		= true;
 	_matUseAmbient		= true;
 	_matUseSpecular		= true;
-	_matUseEmissive		= false;
+	_matUseEmissive		= true;
+
 
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
-	_matAmbient			= ci::ColorA( 0.05f, 0.05f, 0.05f, 1.0f );
-	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
+	_matAmbient			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
+	_matDiffuse			= ci::ColorA( 0.3f, 0.5f, 0.8f, 1.0f );
 	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
-	_matEmission		= ci::ColorA( 0.1f,0.01f, 0.1f, 1.0f );
+	_matEmission		= ci::ColorA( 0.4f/3, 0.7f/3, 1.0f/3, 1.0f );
 	_matShininess		= 64.0f;
 
-	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT );
+	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT_AND_BACK );
+	_material->apply();
 }
 
 
@@ -373,7 +375,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 4500);
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 5000);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -413,14 +415,14 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 0.1f;
-	float grav = 0.3;
-	float maxVel = 5.0f;
-	float nZ = nZ = 1.0f;//getElapsedSeconds() * 0.005;
+	float maxSpeed = 1.0f;
+	float grav = 0.05;
+	float maxVel = 15.0f;
+	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
 
-	float force = 0.25f;
+	float force = 0.45f;
 	float maxDist = 1000.0f;
 	float maxDistSQ = maxDist*maxDist;
 
@@ -490,7 +492,7 @@ void QuadDistrustApp::update()
 			// (if X and Z use the same angle we will create a cylinder
 			float xAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
 			float zAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
-			float rotAngle = ci::Rand::randFloat( (float)M_PI );
+			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
 			float y = ci::Rand::randFloat() * 200;
@@ -498,7 +500,7 @@ void QuadDistrustApp::update()
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
 			// Modify quad vertices to place at position
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 4, 0.5, rotAngle );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 8, 2, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];
@@ -515,7 +517,7 @@ void QuadDistrustApp::update()
 		++indexQuadIterator;
 	}
 
-	mAngle += 0.01f;
+	mAngle += 0.025f;
 }
 
 
@@ -539,19 +541,21 @@ void QuadDistrustApp::draw()
 	if(!movedOnce)
 	{
 		// Move light
-			float r = 2000;
+			float r = 500;
 			float x = ci::math<float>::cos( mAngle ) * r;
-			float y = ci::math<float>::sin( getElapsedSeconds() * 0.01 ) * 500;
+			float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 1000;
 			float z = ci::math<float>::sin( mAngle ) * r;
-//			movedOnce = true;
-//			_light->lookAt( , ci::Vec3f::zero() );
-			//
-			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.5 ) ) * 0.989f + 0.1f;
 
 			ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
+
+//			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
+//			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.2 ) ) * 0.889f + 0.1f;
 //			std::cout << dir << std::endl;
-			GLfloat light_position[] = { camEye.x, camEye.y, camEye.z, dir };
+
+//			std::cout << dir << std::endl;
+			GLfloat light_position[] = { x, y, z, 0.00001f };
 			glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+//			movedOnce = true;
 	}
 
 
