@@ -34,6 +34,7 @@
 #include "ofxSinCosLUT.h"
 #include "cinder/Perlin.h"
 
+
 #define distance2(a,b,c) {\
   float tmp;\
   c = a[0] - b[0];\
