@@ -57,9 +57,6 @@ struct IndexedQuad
 {
 	size_t		index;
 	float 		skyLimit;
-	float		lifespan;
-	float		age;
-	float		agePer;
 	float 		mass;
 	ci::Vec3f	position;
 	ci::Vec3f	velocity;
@@ -199,7 +196,7 @@ void QuadDistrustApp::setup()
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
 
 	// Setup OpenGL
 	ci::gl::enableDepthWrite();
@@ -207,6 +204,10 @@ void QuadDistrustApp::setup()
 	ci::gl::enableAlphaBlending();
 
 	_textureParticle	= ci::gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
+
+
+
+
 	getFocus();
 }
 
@@ -233,17 +234,15 @@ glVertex3f( 1.0f,-1.0f, 0.0f);			// Right And Down One Unit (Bottom Right)
 glVertex3f(-1.0f,-1.0f, 0.0f);			// Left And Down One Unit (Bottom Left)
 glEnd();
  */
-
-static float quadlifeSpan = 500.0f;
 void QuadDistrustApp::setupQuadSprites()
 {
-	_quadMaxSize = 4.0f;
-	_quadMaxDistortion = 0.1f;
+	_quadMaxSize = 7.0f;
+	_quadMaxDistortion = 1.0f;
 
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float count = 30000;
+	float count = 10000;
 
 	_indexedQuads.reserve( count );
 
@@ -260,7 +259,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
-		//pos += ci::Rand::randVec3f() * 50;
+		pos += ci::Rand::randVec3f() * 50;
 		//pos.y = 10000;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
@@ -277,8 +276,7 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.acceleration = ci::Vec3f::zero();
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
 		iq.mass = ci::Rand::randFloat(1.0, 3.0);
-		iq.lifespan = ci::Rand::randFloat(quadlifeSpan*0.5, quadlifeSpan);
-		iq.age = 0;
+
 		_indexedQuads.push_back( iq );
 	}
 
@@ -298,7 +296,7 @@ void QuadDistrustApp::setupKinect()
 
     std::cout << "CurrentWorkingDirectory is:" << cwd << std::endl;
     std::cout << "AppPath: " << this->getAppPath() << std::endl;
-	bool useRecording = false;
+	bool useRecording = true;
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
@@ -477,7 +475,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 6500);
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 7000);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -518,16 +516,16 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 0.4f;
+	float maxSpeed = 1.0f;
 	float grav = 0.04;
-	float maxVel = 10.0f;
+	float maxVel = 15.0f;
 	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
 
-	float force = 0.8f;
-	float minDist = 300.0f;
-	float maxDist = 3000.0f;
+	float force = 2.5f;
+	float minDist = 100.0f;
+	float maxDist = 3500.0f;
 	float maxDistSQ = maxDist*maxDist;
 
 #ifdef __USE_KINECT
@@ -576,10 +574,6 @@ void QuadDistrustApp::update()
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
-
-		iq->age++;
-		iq->agePer = iq->age / iq->lifespan;
-
 		ci::Vec3f noisePosition = vec[j];
 
 
@@ -599,7 +593,7 @@ void QuadDistrustApp::update()
 				delta *= invS;
 
 				// Apply inverse force
-				float inverseForce = (1.0-(dist/maxDist)) * force * iq->agePer;
+				float inverseForce = (1.0-(dist/maxDist)) * force * iq->mass;
 				delta *= inverseForce;
 				iq->velocity += delta;
 
@@ -611,7 +605,7 @@ void QuadDistrustApp::update()
 		iq->position = vec[j];
 		noisePosition *= 0.0005f;
 		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
-		nNoise *= TWO_PI;
+		nNoise *= TWO_PI*2;
 
 		iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
 		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed * nZ; // Apply gravity
@@ -634,11 +628,10 @@ void QuadDistrustApp::update()
 		iq->velocity *= 0.98f;
 
 
-		if(vec[j].y > iq->skyLimit || iq->age > iq->lifespan)
+		if(vec[j].y > iq->skyLimit)
 		{
 			float radius = 2000;
 
-			iq->age = 0;
 			iq->velocity = ci::Vec3f::zero();
 
 			// (if X and Z use the same angle we will create a cylinder
@@ -647,7 +640,7 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 100;
+			float y = ci::Rand::randFloat() * 200;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
