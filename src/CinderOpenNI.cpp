@@ -143,8 +143,13 @@ bool CinderOpenNISkeleton::setup()
 	for(int i = 0; i < maxUsers; i++) {
 		UserSkeleton emptySkeleton;
 		emptySkeleton.isValid = false;
-		emptySkeleton.projectedPosition = ci::Vec3f::zero();
 		emptySkeleton.id = currentUsers[i];
+
+		// Create a bunch of spots to contain our vectors
+		emptySkeleton.projectedPositions.clear();
+		for( int j = 0; j < XN_SKEL_RIGHT_FOOT+1; ++j) {
+			emptySkeleton.projectedPositions.push_back( ci::Vec3f::zero() );
+		}
 
 		_allUsers.push_back( emptySkeleton );
 	}
@@ -645,7 +650,6 @@ ci::Vec3f CinderOpenNISkeleton::getUserJointRealWorld( XnUserID playerID, XnSkel
 
 void CinderOpenNISkeleton::updateUsers()
 {
-
 	for (int i = 0; i < maxUsers; ++i)
 	{
 		XnUserID userId = currentUsers[i];
@@ -696,7 +700,7 @@ void CinderOpenNISkeleton::updateUsers()
 			jointPositions[j].Z += gCinderOpenNISkeleton->worldOffset.z;
 			jointPositions[j].Z *= scale.z;
 
-			_allUsers[i].projectedPosition = ci::Vec3f(jointPositions[j].X, jointPositions[j].Y, jointPositions[j].Z);
+			_allUsers[i].projectedPositions[j] = ci::Vec3f(jointPositions[j].X, jointPositions[j].Y, jointPositions[j].Z);
 		}
 	}
 }
@@ -761,6 +765,11 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 		return;
 	}
 
+	ci::Vec3f jointPositionA = _allUsers[player].projectedPositions[eJoint1];
+	ci::Vec3f jointPositionB = _allUsers[player].projectedPositions[eJoint2];
+	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
+	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
+	return;
 	XnSkeletonJointPosition joint1, joint2;
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint1, joint1);
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint2, joint2);

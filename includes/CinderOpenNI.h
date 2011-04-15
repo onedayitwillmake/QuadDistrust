@@ -41,12 +41,11 @@ if(isFatal)														\
 exit(-1);													\
 }
 
-
 struct UserSkeleton
 {
-	XnUserID	id;
-	bool		isValid;
-	ci::Vec3f	projectedPosition;
+	XnUserID				id;
+	bool					isValid;
+	std::vector<ci::Vec3f>	projectedPositions;
 };
 
 class CinderOpenNISkeleton {

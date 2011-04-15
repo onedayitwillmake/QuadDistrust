@@ -190,18 +190,18 @@ void QuadDistrustApp::setup()
 	mMOUSEDOWN	= false;
 
 	// Forces
-	int forceCount = 8;
-	for(int i = 0; i < forceCount; i++) {
-		ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
-		pos.y = fabs(pos.y);
-//		pos.normalize();
-		_forces.push_back( pos );
-	}
+//	int forceCount = 8;
+//	for(int i = 0; i < forceCount; i++) {
+//		ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+//		pos.y = fabs(pos.y);
+////		pos.normalize();
+//		_forces.push_back( pos );
+//	}
 
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
 
 	// Setup OpenGL
 	ci::gl::enableDepthWrite();
@@ -468,6 +468,8 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+
 	static bool didTest = false;
 	static ofxSinCosLUT sinCosLUT;
 	static ci::Perlin	perlin;
@@ -509,11 +511,26 @@ void QuadDistrustApp::update()
 	mCounter += 0.01;
 
 
-	float force = 1.4f;
+	float force = 2.5f;
 	float maxDist = 1000.0f;
 	float maxDistSQ = maxDist*maxDist;
 
-	ci::Vec3f gravCenter = ci::Vec3f::zero();
+	// Add force per hand
+	_forces.clear();
+	int maxForceCount = 8;
+	for (int i = 0; i < skeleton->_allUsers.size(); ++i)
+	{
+		XnUserID userId = skeleton->currentUsers[i];
+		if( !skeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) ) {
+			skeleton->_allUsers[i].isValid = false;
+			continue;
+		}
+
+		_forces.push_back( skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND] );
+		_forces.push_back( skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND] );
+	}
+
+
 
 	size_t iglen = _forces.size();
 	while(j < i)
@@ -611,11 +628,13 @@ void QuadDistrustApp::update()
 
 void QuadDistrustApp::draw()
 {
+	static bool moveLight = false;
+
 	// clear out the window with black
 	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
 
 	// Draw 2D
-	ci::gl::pushMatrices();
+//	ci::gl::pushMatrices();
 	ci::gl::setMatricesWindow( getWindowSize() );
 	ci::gl::disableDepthRead();
 	ci::gl::disableDepthWrite();
@@ -623,17 +642,15 @@ void QuadDistrustApp::draw()
 	drawKinectDepth();
 
 	// Draw 3D
-	static bool movedOnce = false;
+	ci::gl::setMatrices( _mayaCam.getCamera() );
+	ci::gl::enableDepthRead();
+	ci::gl::enableDepthWrite();
 	ci::gl::disableAlphaBlending();
 
-	ci::gl::setMatrices( _mayaCam.getCamera() );
+
 	_light->update( _mayaCam.getCamera() );
-
 	_light->enable();
-
-//	_light->update( _mayaCam.getCamera() );
-
-	if(!movedOnce)
+	if(!moveLight)
 	{
 		// Move light
 			float r = 500;
@@ -678,7 +695,7 @@ void QuadDistrustApp::draw()
 
 	size_t len = _forces.size();
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
-	for(int i = 0; i < len; i++ ) {
+	for(int i = 0; i < len; ++i ) {
 		ci::gl::drawCube( _forces[i], forceCubeSize );
 
 		if(ci::Rand::randFloat() < 0.005) {
