@@ -83,8 +83,8 @@ public:
 	void 		update();
 	void 		draw();
 
-#ifdef  __USE_KINECT
 	void 		drawKinectDepth();
+#ifdef  __USE_KINECT
 	ci::Rectf	getKinectDepthArea();
 #endif
 
@@ -94,7 +94,10 @@ public:
 	ci::TriMesh*		_particleMesh;
 	ci::TriMesh*		_planeMesh;
 	std::vector< IndexedQuad > _indexedQuads;
+	float 					_quadMaxSize;
+	float					_quadMaxDistortion;
 
+	// Particle properties
 	// GRAVITY
 	std::vector< ci::Vec3f >	_forces;
 
@@ -220,6 +223,9 @@ glEnd();
  */
 void QuadDistrustApp::setupQuadSprites()
 {
+	_quadMaxSize = 7.0f;
+	_quadMaxDistortion = 1.0f;
+
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
@@ -247,7 +253,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float angle = ci::Rand::randFloat( M_PI );
 
 		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
-		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 4, 1, angle );
+		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, _quadMaxSize, _quadMaxDistortion, angle );
 		ZoaDebugFunctions::addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 
 		// Store in index quad
@@ -276,7 +282,7 @@ void QuadDistrustApp::setupKinect()
 
     std::cout << "CurrentWorkingDirectory is:" << cwd << std::endl;
     std::cout << "AppPath: " << this->getAppPath() << std::endl;
-	bool useRecording = false;
+	bool useRecording = true;
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
@@ -286,7 +292,7 @@ void QuadDistrustApp::setupKinect()
 
 
 	if(useRecording) {
-		nRetVal = skeleton->mContext.OpenFileRecording("/SkeletonRec.oni");
+		nRetVal = skeleton->mContext.OpenFileRecording("Contents/Resources/SkeletonRec.oni");
 		// File opened
 		CHECK_RC(nRetVal, "B-Open File Recording", true);
 
@@ -456,7 +462,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 5000);
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 7000);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -497,13 +503,13 @@ void QuadDistrustApp::update()
 
 	int indexQuadIterator = 0;
 	float maxSpeed = 1.0f;
-	float grav = 0.05;
+	float grav = 0.04;
 	float maxVel = 15.0f;
 	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
 
-	float force = 0.45f;
+	float force = 1.4f;
 	float maxDist = 1000.0f;
 	float maxDistSQ = maxDist*maxDist;
 
@@ -581,7 +587,7 @@ void QuadDistrustApp::update()
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
 			// Modify quad vertices to place at position
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], 8, 2, rotAngle );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], _quadMaxSize, _quadMaxDistortion, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];
@@ -609,11 +615,11 @@ void QuadDistrustApp::draw()
 	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
 
 	// Draw 2D
-	gl::pushMatrices();
-	gl::setMatricesWindow( getWindowSize() );
-	gl::disableDepthRead();
-	gl::disableDepthWrite();
-	gl::enableAlphaBlending();
+	ci::gl::pushMatrices();
+	ci::gl::setMatricesWindow( getWindowSize() );
+	ci::gl::disableDepthRead();
+	ci::gl::disableDepthWrite();
+	ci::gl::enableAlphaBlending();
 	drawKinectDepth();
 
 	// Draw 3D
@@ -665,7 +671,7 @@ void QuadDistrustApp::draw()
 
 	_light->disable();
 	glColor3f( 1.0f, 1.0f, 0.1f );
-	ci::gl::drawFrustum( _light->getShadowCamera() );
+//	ci::gl::drawFrustum( _light->getShadowCamera() );
 	// Draw floor
 	ci::gl::enableWireframe();
 	ci::gl::draw( *_planeMesh );
@@ -675,7 +681,7 @@ void QuadDistrustApp::draw()
 	for(int i = 0; i < len; i++ ) {
 		ci::gl::drawCube( _forces[i], forceCubeSize );
 
-		if(ci::Rand::randFloat() < 0.01) {
+		if(ci::Rand::randFloat() < 0.005) {
 			ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
 			pos.y = fabs(pos.y);
 			_forces[i] = pos;
@@ -684,9 +690,10 @@ void QuadDistrustApp::draw()
 	ci::gl::disableWireframe();
 }
 
-#ifdef  __USE_KINECT
+
 void QuadDistrustApp::drawKinectDepth()
 {
+#ifdef  __USE_KINECT
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
 
 	// Get surface
@@ -703,8 +710,9 @@ void QuadDistrustApp::drawKinectDepth()
 
 	// Debug draw
 	skeleton->debugDrawLabels( Font( "Arial", 10 ), depthArea );
-}
 #endif
+
+}
 
 #ifdef  __USE_KINECT
 // Returns the area where the kinect depth map is drawn

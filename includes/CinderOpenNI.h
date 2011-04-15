@@ -41,6 +41,14 @@ if(isFatal)														\
 exit(-1);													\
 }
 
+
+struct UserSkeleton
+{
+	XnUserID	id;
+	bool		isValid;
+	ci::Vec3f	projectedPosition;
+};
+
 class CinderOpenNISkeleton {
 
 public:
@@ -57,6 +65,7 @@ public:
 	XnStatus						setupCallbacks();
 	void							shouldStartUpdating();
 	void							update();
+	void							updateUsers();
 	void							shouldStopUpdating();
 	//static void						seekToFrame( int nDiff );
 
@@ -88,7 +97,7 @@ public:
 	void							setupGUI();
 	void							debugOutputNodeTypes();
 	void							debugDrawLabels( Font font, ci::Rectf depthArea );
-	void							debugDrawSkeleton( );
+	void							debugDrawSkeleton();
 
 
 	//protected:
@@ -108,8 +117,9 @@ public:
 	xn::SceneMetaData	mSceneMD;
 	xn::DepthMetaData	mDepthMD;
 
-	XnUserID			currentUsers[15];
-	XnUInt16			maxUsers;
+	XnUserID					currentUsers[15];
+	XnUInt16					maxUsers;
+	std::vector<UserSkeleton>	_allUsers;
 
 #pragma mark Callback
 	static void XN_CALLBACK_TYPE User_NewUser(xn::UserGenerator& generator, XnUserID nId, void* pCookie);

@@ -3,7 +3,7 @@
 
 XnFloat Colors[][3] =
 {
-	{0, 0, 1},
+	{1, 1, 1},
 	{1, 0.3,0.2},
 	{0,1,0},
 	{1,1,0},
@@ -105,7 +105,7 @@ void CinderOpenNISkeleton::update()
 		mUserGenerator.GetUserPixels(0, mSceneMD);
 		setDepthSurface();
 
-
+		updateUsers();
 		++iteration;
 	}
 }
@@ -138,6 +138,16 @@ bool CinderOpenNISkeleton::setup()
 
 	// Output device production nodes (user, depth, etc)
 	debugOutputNodeTypes();
+
+	_allUsers.clear();
+	for(int i = 0; i < maxUsers; i++) {
+		UserSkeleton emptySkeleton;
+		emptySkeleton.isValid = false;
+		emptySkeleton.projectedPosition = ci::Vec3f::zero();
+		emptySkeleton.id = currentUsers[i];
+
+		_allUsers.push_back( emptySkeleton );
+	}
 
 	return true;
 }
@@ -551,9 +561,6 @@ void CinderOpenNISkeleton::debugDrawLabels( Font font, ci::Rectf depthArea )
 /* Drawing methods */
 void CinderOpenNISkeleton::debugDrawSkeleton()
 {
-	if(!mUserGenerator)
-		return;
-
 	static bool isTracking = false;
 	for (int i = 0; i < maxUsers; ++i)
 	{
@@ -567,11 +574,11 @@ void CinderOpenNISkeleton::debugDrawSkeleton()
 			}
 
 
-			glLineWidth(5.0);
+			glLineWidth(2.0);
 			glBegin(GL_LINES);
-			glColor4f(1-Colors[currentUsers[i]%nColors][0],
-					  1-Colors[currentUsers[i]%nColors][1],
-					  1-Colors[currentUsers[i]%nColors][2], 0.25);
+			glColor4f(Colors[currentUsers[i]%nColors][0],
+					  Colors[currentUsers[i]%nColors][1],
+					  Colors[currentUsers[i]%nColors][2], 0.5);
 
 
 			// HEAD TO NECK
@@ -636,6 +643,64 @@ ci::Vec3f CinderOpenNISkeleton::getUserJointRealWorld( XnUserID playerID, XnSkel
 	return ci::Vec3f( point3D[0].X, point3D[0].Y, point3D[0].Z );
 }
 
+void CinderOpenNISkeleton::updateUsers()
+{
+
+	for (int i = 0; i < maxUsers; ++i)
+	{
+		XnUserID userId = currentUsers[i];
+		if( !gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) ) {
+			_allUsers[i].isValid = false;
+			continue;
+		}
+
+		_allUsers[i].isValid = true;
+		XnPoint3D jointPositions[XN_SKEL_RIGHT_FOOT+1];		// Allocate container, joint positions are placed into this array
+
+		int totalJoints = XN_SKEL_RIGHT_FOOT+1;
+
+		// Since their indexing starts at one, place empty object at first joint slot
+		XnPoint3D firstJoint;
+		firstJoint.X = firstJoint.Y = firstJoint.Z = 1;
+		jointPositions[0] = firstJoint;
+
+		// Loop through all joints 1-24 and fill data
+		for (int j = XN_SKEL_HEAD; j < XN_SKEL_RIGHT_FOOT; ++j)
+		{
+			XnSkeletonJointPosition currentJointPosition;
+			gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition( userId, (XnSkeletonJoint)j /* current joint - just an interger constant */, currentJointPosition);
+
+			// Place into array
+			jointPositions[j] = currentJointPosition.position;
+		}
+
+		// convert all points in the array, in place
+		gCinderOpenNISkeleton->mDepthGenerator.ConvertRealWorldToProjective(totalJoints, jointPositions, jointPositions);
+
+		// Apply scale based on window size, vs dimensions of depth image ( will be 320 or 640 )
+		ci::Vec2i windowSize = ci::app::App::get()->getWindowSize();	// Dimensions of the application window
+		ci::Vec2i inputSize = gCinderOpenNISkeleton->getDimensions();	// Dimensions of our image
+		ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 1.0f );
+		scale *= 2.0f;
+		scale.y *= -2.0f;
+
+		// Apply offset
+		for(int j = 0; j < totalJoints; ++j)
+		{
+			jointPositions[j].X += gCinderOpenNISkeleton->worldOffset.x;
+			jointPositions[j].X *= scale.x;
+
+			jointPositions[j].Y += gCinderOpenNISkeleton->worldOffset.y;
+			jointPositions[j].Y *= scale.y;
+
+			jointPositions[j].Z += gCinderOpenNISkeleton->worldOffset.z;
+			jointPositions[j].Z *= scale.z;
+
+			_allUsers[i].projectedPosition = ci::Vec3f(jointPositions[j].X, jointPositions[j].Y, jointPositions[j].Z);
+		}
+	}
+}
+
 XnStatus CinderOpenNISkeleton::getUserJointInformation(XnUserID playerID, XnPoint3D jointPositions[], bool invertY) const
 {
 	if (!gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().IsTracking(playerID)){
@@ -670,7 +735,9 @@ XnStatus CinderOpenNISkeleton::getUserJointInformation(XnUserID playerID, XnPoin
 	// Apply scale based on window size, vs dimensions of depth image ( will be 320 or 640 )
 	ci::Vec2i windowSize = ci::app::App::get()->getWindowSize();	// Dimensions of the application window
 	ci::Vec2i inputSize = gCinderOpenNISkeleton->getDimensions();	// Dimensions of our image
-	ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 0.5 );
+	ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 1.0f );
+	scale *= 2.0f;
+	scale.y *= -2.0f;
 
 	// Apply offset
 	for(int i = 0; i < totalJoints; i++)
@@ -680,9 +747,6 @@ XnStatus CinderOpenNISkeleton::getUserJointInformation(XnUserID playerID, XnPoin
 
 		jointPositions[i].Y += gCinderOpenNISkeleton->worldOffset.y;
 		jointPositions[i].Y *= scale.y;
-
-		if(invertY)
-			jointPositions[i].Y *= -1;
 
 		jointPositions[i].Z += gCinderOpenNISkeleton->worldOffset.z;
 		jointPositions[i].Z *= scale.z;
@@ -724,8 +788,7 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 	ci::Vec2i inputSize = getDimensions();	// Dimensions of our image
 	ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 1.0f );
 	scale *= 2.0f;
-	scale.y *= 2.0f;
-//	scale = ci::Vec3f(0.2, -0.2,0.2);
+	scale.y *= -2.0f;
 
 	// Draw
 	glVertex3i(pt[0].X * scale.x, pt[0].Y * scale.y, pt[0].Z * scale.z);
