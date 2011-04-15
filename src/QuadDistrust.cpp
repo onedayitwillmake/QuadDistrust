@@ -103,6 +103,7 @@ public:
 
 	ci::gl::Light*		_light;
 	ci::gl::Material*	_material;
+	gl::Texture		mParticleTexture;
 
 	ci::gl::GlslProg	mShader;
 	float				mAngle;
@@ -207,6 +208,9 @@ void QuadDistrustApp::setup()
 	ci::gl::enableDepthWrite();
 	ci::gl::enableDepthRead();
 	ci::gl::enableAlphaBlending();
+
+	mParticleTexture	= gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
+
 
 	getFocus();
 }
@@ -639,6 +643,7 @@ void QuadDistrustApp::draw()
 	ci::gl::disableDepthRead();
 	ci::gl::disableDepthWrite();
 	ci::gl::enableAlphaBlending();
+
 	drawKinectDepth();
 
 	// Draw 3D
@@ -646,6 +651,7 @@ void QuadDistrustApp::draw()
 	ci::gl::enableDepthRead();
 	ci::gl::enableDepthWrite();
 	ci::gl::disableAlphaBlending();
+	ci::gl::enableAdditiveBlending();
 
 
 	_light->update( _mayaCam.getCamera() );
@@ -688,22 +694,30 @@ void QuadDistrustApp::draw()
 
 	_light->disable();
 	glColor3f( 1.0f, 1.0f, 0.1f );
+
+
+	// Draw force billboards
+	Vec3f mRight, mUp;
+	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
+
+	size_t len = _forces.size();
+	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
+
+	glEnable( GL_TEXTURE_2D );
+	mParticleTexture.bind();
+	for(int i = 0; i < len; ++i ) {
+		ci::gl::drawBillboard( _forces[i], ci::Vec2f(100.0f, 100.0f), 0.0f, mRight, mUp);
+//		if(ci::Rand::randFloat() < 0.005) {
+//			ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+//			pos.y = fabs(pos.y);
+//			_forces[i] = pos;
+//		}
+	}
+	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(100.0f, 100.0f), 0.0f, mRight, mUp);
 //	ci::gl::drawFrustum( _light->getShadowCamera() );
 	// Draw floor
 	ci::gl::enableWireframe();
 	ci::gl::draw( *_planeMesh );
-
-	size_t len = _forces.size();
-	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
-	for(int i = 0; i < len; ++i ) {
-		ci::gl::drawCube( _forces[i], forceCubeSize );
-
-		if(ci::Rand::randFloat() < 0.005) {
-			ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
-			pos.y = fabs(pos.y);
-			_forces[i] = pos;
-		}
-	}
 	ci::gl::disableWireframe();
 }
 
