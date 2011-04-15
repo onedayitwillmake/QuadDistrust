@@ -57,6 +57,9 @@ struct IndexedQuad
 {
 	size_t		index;
 	float 		skyLimit;
+	float		lifespan;
+	float		age;
+	float		agePer;
 	float 		mass;
 	ci::Vec3f	position;
 	ci::Vec3f	velocity;
@@ -196,7 +199,7 @@ void QuadDistrustApp::setup()
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
 
 	// Setup OpenGL
 	ci::gl::enableDepthWrite();
@@ -204,10 +207,6 @@ void QuadDistrustApp::setup()
 	ci::gl::enableAlphaBlending();
 
 	_textureParticle	= ci::gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
-
-
-
-
 	getFocus();
 }
 
@@ -234,15 +233,17 @@ glVertex3f( 1.0f,-1.0f, 0.0f);			// Right And Down One Unit (Bottom Right)
 glVertex3f(-1.0f,-1.0f, 0.0f);			// Left And Down One Unit (Bottom Left)
 glEnd();
  */
+
+static float quadlifeSpan = 500.0f;
 void QuadDistrustApp::setupQuadSprites()
 {
-	_quadMaxSize = 7.0f;
-	_quadMaxDistortion = 1.0f;
+	_quadMaxSize = 4.0f;
+	_quadMaxDistortion = 0.1f;
 
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
 
-	float count = 10000;
+	float count = 30000;
 
 	_indexedQuads.reserve( count );
 
@@ -259,7 +260,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float r = sqrtf(1 - y*y);
 		float phi = i * theta;
 		pos = ci::Vec3f( cosf(phi)*r, y, sinf(phi)*r) * radius;
-		pos += ci::Rand::randVec3f() * 50;
+		//pos += ci::Rand::randVec3f() * 50;
 		//pos.y = 10000;
 
 		ci::ColorA aColor( ci::CM_HSV, ci::Rand::randFloat() * 0.2 + 0.4, 0.7f, 0.9f, 0.9f );
@@ -275,8 +276,9 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.velocity = ci::Vec3f::zero();
 		iq.acceleration = ci::Vec3f::zero();
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
-		iq.mass = ci::Rand::randFloat(0.98, 1.1);
-
+		iq.mass = ci::Rand::randFloat(1.0, 3.0);
+		iq.lifespan = ci::Rand::randFloat(quadlifeSpan*0.5, quadlifeSpan);
+		iq.age = 0;
 		_indexedQuads.push_back( iq );
 	}
 
@@ -296,7 +298,7 @@ void QuadDistrustApp::setupKinect()
 
     std::cout << "CurrentWorkingDirectory is:" << cwd << std::endl;
     std::cout << "AppPath: " << this->getAppPath() << std::endl;
-	bool useRecording = true;
+	bool useRecording = false;
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
@@ -475,7 +477,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 7000);
+	cam.setPerspective( 60,  event.getAspectRatio(), 1, 6500);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -516,15 +518,16 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 1.0f;
+	float maxSpeed = 0.4f;
 	float grav = 0.04;
-	float maxVel = 15.0f;
+	float maxVel = 10.0f;
 	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
 
-	float force = 2.5f;
-	float maxDist = 1000.0f;
+	float force = 0.8f;
+	float minDist = 300.0f;
+	float maxDist = 3000.0f;
 	float maxDistSQ = maxDist*maxDist;
 
 #ifdef __USE_KINECT
@@ -539,7 +542,7 @@ void QuadDistrustApp::update()
 		XnUserID userId = skeleton->currentUsers[i];
 		if( !skeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) )
 		{
-			skeleton->_allUsers[i].isValid = false;
+//			skeleton->_allUsers[i].isValid = false;
 
 			_forces[forceIterator].isActive = false;
 			_forces[forceIterator+1].isActive = false;
@@ -573,6 +576,10 @@ void QuadDistrustApp::update()
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
+
+		iq->age++;
+		iq->agePer = iq->age / iq->lifespan;
+
 		ci::Vec3f noisePosition = vec[j];
 
 
@@ -584,7 +591,7 @@ void QuadDistrustApp::update()
 
 			ci::Vec3f delta = _forces[ig].position - iq->position;
 			float s = delta.lengthSquared();
-			if( s > 10.0f && s < maxDistSQ ) // is within range
+			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
 			{
 				// normalize
 				float dist = ci::math<float>::sqrt( s );
@@ -592,7 +599,7 @@ void QuadDistrustApp::update()
 				delta *= invS;
 
 				// Apply inverse force
-				float inverseForce = (1.0-(dist/maxDist)) * force * iq->mass;
+				float inverseForce = (1.0-(dist/maxDist)) * force * iq->agePer;
 				delta *= inverseForce;
 				iq->velocity += delta;
 
@@ -604,7 +611,7 @@ void QuadDistrustApp::update()
 		iq->position = vec[j];
 		noisePosition *= 0.0005f;
 		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
-		nNoise *= TWO_PI*2;
+		nNoise *= TWO_PI;
 
 		iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
 		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed * nZ; // Apply gravity
@@ -627,10 +634,11 @@ void QuadDistrustApp::update()
 		iq->velocity *= 0.98f;
 
 
-		if(vec[j].y > iq->skyLimit)
+		if(vec[j].y > iq->skyLimit || iq->age > iq->lifespan)
 		{
 			float radius = 2000;
 
+			iq->age = 0;
 			iq->velocity = ci::Vec3f::zero();
 
 			// (if X and Z use the same angle we will create a cylinder
@@ -639,7 +647,7 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 200;
+			float y = ci::Rand::randFloat() * 100;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
@@ -661,7 +669,7 @@ void QuadDistrustApp::update()
 		++indexQuadIterator;
 	}
 
-	mAngle += 0.025f;
+	mAngle += 0.25f;
 }
 
 
@@ -678,7 +686,7 @@ void QuadDistrustApp::draw()
 	ci::gl::disableDepthRead();
 	ci::gl::disableDepthWrite();
 	ci::gl::enableAlphaBlending();
-//	drawKinectDepth();
+//=	drawKinectDepth();
 
 	// Draw 3D
 	ci::gl::setMatrices( _mayaCam.getCamera() );
@@ -692,11 +700,10 @@ void QuadDistrustApp::draw()
 	size_t len = _forces.size();
 	float textureScale = 500.0f;
 	for(int i = 0; i < len; ++i ) {
-		if( !_forces[i].isActive )
-			continue;
+		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
-	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
 
 
@@ -713,7 +720,7 @@ void QuadDistrustApp::draw()
 		// Move light
 		float r = 500;
 		float x = ci::math<float>::cos( mAngle ) * r;
-		float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 1000;
+		float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 500;
 		float z = ci::math<float>::sin( mAngle ) * r;
 		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 
@@ -733,15 +740,13 @@ void QuadDistrustApp::draw()
 		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
 	_shader.unbind();
 	// END SHADER
+	_light->disable();
+	glColor3f( 1.0f, 1.0f, 0.1f );
 
 #ifdef  __USE_KINECT
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
 	skeleton->debugDrawSkeleton();
 #endif
-
-	_light->disable();
-	glColor3f( 1.0f, 1.0f, 0.1f );
-
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
 
 //	ci::gl::drawFrustum( _light->getShadowCamera() );

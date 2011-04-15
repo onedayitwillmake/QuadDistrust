@@ -327,7 +327,7 @@ void XN_CALLBACK_TYPE CinderOpenNISkeleton::UserCalibration_CalibrationEnd(xn::S
 		}
 
 		app::console() <<  "(ONEDAY)::OpenNICallback::UserCalibration_CalibrationEnd: " <<  nId << std::endl;
-		float mSkeletonSmoothing = 0.5f;
+		float mSkeletonSmoothing = 0.2;
 		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().StartTracking(nId);
 		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().SetSmoothing( mSkeletonSmoothing );
 	}
@@ -566,20 +566,13 @@ void CinderOpenNISkeleton::debugDrawLabels( Font font, ci::Rectf depthArea )
 /* Drawing methods */
 void CinderOpenNISkeleton::debugDrawSkeleton()
 {
-	static bool isTracking = false;
+	glEnable(GL_LINE_SMOOTH);
 	for (int i = 0; i < maxUsers; ++i)
 	{
-		bool wasTracking = isTracking;
 		if( mUserGenerator.GetSkeletonCap().IsTracking(currentUsers[i]))
 		{
-			// Was not tracking last frame
-			if(isTracking == false) {
-				app::console() << "Is Tracking User" << endl;
-				isTracking = true;
-			}
+			glLineWidth(1.0);
 
-
-			glLineWidth(2.0);
 			glBegin(GL_LINES);
 			glColor4f(Colors[currentUsers[i]%nColors][0],
 					  Colors[currentUsers[i]%nColors][1],
@@ -614,13 +607,14 @@ void CinderOpenNISkeleton::debugDrawSkeleton()
 			drawLimbDebug(currentUsers[i], XN_SKEL_RIGHT_HIP, XN_SKEL_RIGHT_KNEE);
 			drawLimbDebug(currentUsers[i], XN_SKEL_RIGHT_KNEE, XN_SKEL_RIGHT_FOOT);
 			// PELVIS
-			drawLimbDebug(currentUsers[i]	, XN_SKEL_LEFT_HIP, XN_SKEL_RIGHT_HIP);
+			drawLimbDebug(currentUsers[i], XN_SKEL_LEFT_HIP, XN_SKEL_RIGHT_HIP);
 
 
 			glEnd();
 		}
 	}
 
+	glDisable(GL_LINE_SMOOTH);
 	gl::color(ColorA(1,1,1,1));
 }
 
@@ -647,6 +641,7 @@ ci::Vec3f CinderOpenNISkeleton::getUserJointRealWorld( XnUserID playerID, XnSkel
 	// Convert and return Vec3f
 	return ci::Vec3f( point3D[0].X, point3D[0].Y, point3D[0].Z );
 }
+
 
 void CinderOpenNISkeleton::updateUsers()
 {
@@ -765,8 +760,8 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 		return;
 	}
 
-	ci::Vec3f jointPositionA = _allUsers[player].projectedPositions[eJoint1];
-	ci::Vec3f jointPositionB = _allUsers[player].projectedPositions[eJoint2];
+	ci::Vec3f jointPositionA = _allUsers[player-1].projectedPositions[eJoint1];
+	ci::Vec3f jointPositionB = _allUsers[player-1].projectedPositions[eJoint2];
 	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
 	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
 	return;
