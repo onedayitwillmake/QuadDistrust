@@ -34,6 +34,10 @@
 #include "ofxSinCosLUT.h"
 #include "cinder/Perlin.h"
 
+#define __USE_KINECT 1
+#ifdef  __USE_KINECT
+#include "CinderOpenNI.h"
+#endif
 
 #define distance2(a,b,c) {\
   float tmp;\
@@ -65,6 +69,9 @@ public:
 	void 	setupCamera();
 	void 	setupQuadSprites();
 	void	setupMaterials();
+#ifdef  __USE_KINECT
+	void	setupKinect();
+#endif
 
 	void	resize( ci::app::ResizeEvent event );
 	void	mouseDown( ci::app::MouseEvent event );
@@ -73,8 +80,13 @@ public:
 	void	mouseUp( ci::app::MouseEvent event );
 	void 	keyDown( ci::app::KeyEvent event );
 
-	void 	update();
-	void 	draw();
+	void 		update();
+	void 		draw();
+
+#ifdef  __USE_KINECT
+	void 		drawKinectDepth();
+	ci::Rectf	getKinectDepthArea();
+#endif
 
 	//
 	ci::gl::Texture		_texture;
@@ -152,6 +164,9 @@ void QuadDistrustApp::setup()
 	mDirectional = 1.0f;
 	setupMaterials();
 	setupQuadSprites();
+#ifdef __USE_KINECT
+	setupKinect();
+#endif
 
 	ci::Rand::randSeed( clock() );
 	_simplexNoise = new ofxSimplex();
@@ -232,7 +247,7 @@ void QuadDistrustApp::setupQuadSprites()
 		float angle = ci::Rand::randFloat( M_PI );
 
 		ci::Vec3f v1; ci::Vec3f v2; ci::Vec3f v3; ci::Vec3f v4;
-		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 50, 5, angle );
+		ZoaDebugFunctions::createQuadAtPosition( pos, v1, v2, v3, v4, 4, 1, angle );
 		ZoaDebugFunctions::addQuadToMesh( *_particleMesh, v1, v2, v3, v4, aColor );
 
 		// Store in index quad
@@ -248,6 +263,71 @@ void QuadDistrustApp::setupQuadSprites()
 
 //	calculateTriMeshNormals( *_particleMesh );
 }
+
+#ifdef  __USE_KINECT
+void QuadDistrustApp::setupKinect()
+{
+	// For now we have to manually change to the application path. Bug?
+	chdir( getAppPath().c_str() );
+
+    int     maxPathLenth = 255;
+    char    temp[maxPathLenth];
+    std::string cwd = ( getcwd(temp, maxPathLenth) ? std::string( temp ) : std::string("") );
+
+    std::cout << "CurrentWorkingDirectory is:" << cwd << std::endl;
+    std::cout << "AppPath: " << this->getAppPath() << std::endl;
+	bool useRecording = false;
+
+	XnStatus nRetVal = XN_STATUS_OK;
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+
+	// shared setup
+	skeleton->setup( );
+
+
+	if(useRecording) {
+		nRetVal = skeleton->mContext.OpenFileRecording("/SkeletonRec.oni");
+		// File opened
+		CHECK_RC(nRetVal, "B-Open File Recording", true);
+
+		// Get recording 'player'
+		nRetVal = skeleton->mContext.FindExistingNode(XN_NODE_TYPE_PLAYER, skeleton->mPlayer);
+		CHECK_RC(nRetVal, "Find player generator", true);
+	} else {
+		skeleton->setupFromXML( "Contents/Resources/configIR.xml" );;
+	}
+
+	// Output device production nodes (user, depth, etc)
+	skeleton->debugOutputNodeTypes();
+
+	// Find depth generator
+	nRetVal = skeleton->mContext.FindExistingNode(XN_NODE_TYPE_DEPTH, skeleton->mDepthGenerator);
+	CHECK_RC(nRetVal, "Find depth generator", true);
+
+
+	// Find skeleton / user generator
+	nRetVal = skeleton->mContext.FindExistingNode(XN_NODE_TYPE_USER, skeleton->mUserGenerator);
+	if (nRetVal != XN_STATUS_OK) {
+		// Create one
+		nRetVal = skeleton->mUserGenerator.Create(skeleton->mContext);
+		CHECK_RC(nRetVal, "Find user generator", false);
+	}
+
+	// Check if user generator can detect skeleton
+	if (!skeleton->mUserGenerator.IsCapabilitySupported(XN_CAPABILITY_SKELETON)) {
+		app::console() << "Supplied user generator doesn't support skeleton\n" << endl;
+	}
+
+	// Register callbacks
+	nRetVal = skeleton->setupCallbacks();
+
+	// Start generating
+	nRetVal = skeleton->mContext.StartGeneratingAll();
+	CHECK_RC(nRetVal, "StartGenerating", true);
+
+	skeleton->shouldStartUpdating();
+}
+#endif
 
 void QuadDistrustApp::setupCamera()
 {
@@ -525,11 +605,19 @@ void QuadDistrustApp::update()
 
 void QuadDistrustApp::draw()
 {
-	static bool movedOnce = false;
-
-
 	// clear out the window with black
 	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
+
+	// Draw 2D
+	gl::pushMatrices();
+	gl::setMatricesWindow( getWindowSize() );
+	gl::disableDepthRead();
+	gl::disableDepthWrite();
+	gl::enableAlphaBlending();
+	drawKinectDepth();
+
+	// Draw 3D
+	static bool movedOnce = false;
 	ci::gl::disableAlphaBlending();
 
 	ci::gl::setMatrices( _mayaCam.getCamera() );
@@ -570,6 +658,11 @@ void QuadDistrustApp::draw()
 	mShader.unbind();
 	// END SHADER
 
+#ifdef  __USE_KINECT
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+	skeleton->debugDrawSkeleton();
+#endif
+
 	_light->disable();
 	glColor3f( 1.0f, 1.0f, 0.1f );
 	ci::gl::drawFrustum( _light->getShadowCamera() );
@@ -590,5 +683,43 @@ void QuadDistrustApp::draw()
 	}
 	ci::gl::disableWireframe();
 }
+
+#ifdef  __USE_KINECT
+void QuadDistrustApp::drawKinectDepth()
+{
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+
+	// Get surface
+	Surface8u depthSurface = skeleton->getDepthSurface();
+
+	// Not ready yet
+	if( depthSurface == NULL ) {
+		return;
+	}
+
+	// Convert to texture
+	ci::Rectf depthArea = getKinectDepthArea();
+	gl::draw( gl::Texture( depthSurface ), depthArea );
+
+	// Debug draw
+	skeleton->debugDrawLabels( Font( "Arial", 10 ), depthArea );
+}
+#endif
+
+#ifdef  __USE_KINECT
+// Returns the area where the kinect depth map is drawn
+// This is used when drawing labels, to draw the labels at the relative location by scaling, then translating the values returned by the kinect
+ci::Rectf QuadDistrustApp::getKinectDepthArea()
+{
+	int width = 160;
+    int height = 120;
+    int padding = 10;
+    int y1 = getWindowSize().y - height;
+    int y2 = y1 + height;
+
+	return ci::Rectf( padding, y1 - padding, width + padding, y2 - padding );
+}
+#endif
+
 
 CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(0) )

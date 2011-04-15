@@ -5,10 +5,10 @@
  *      Author: onedayitwillmake
  */
 
-//#def __USE_KINECT
-//#ifdef __USE_KINECT
 #ifndef CINDEROPENNI_H_
 #define CINDEROPENNI_H_
+
+#pragma once
 
 #include "cinder/app/App.h"
 #include "cinder/gl/gl.h"
@@ -45,12 +45,13 @@ class CinderOpenNISkeleton {
 
 public:
 	static CinderOpenNISkeleton*	getInstance();
+	static void shutdown();
+	~CinderOpenNISkeleton();
 
 	Surface8u						getDepthSurface();
 	ci::Vec3f						getUserJointRealWorld( XnUserID playerID, XnSkeletonJoint jointID);
 	ci::Vec2i						getDimensions();
 
-	void							shutDown();
 	bool							setup();
 	bool							setupFromXML(string path);
 	XnStatus						setupCallbacks();
@@ -70,6 +71,8 @@ public:
 	xn::Player						mPlayer;
 
 	XnBool							mNeedPose;
+	XnUInt32						_slot;
+	XnBool							_isFirstCalibrationComplete;
 	XnChar							mStrPose[20];
 	float							pDepthHist[MAX_DEPTH];
 	float							mJointConfidence;
@@ -85,7 +88,7 @@ public:
 	void							setupGUI();
 	void							debugOutputNodeTypes();
 	void							debugDrawLabels( Font font, ci::Rectf depthArea );
-	void							debugDrawSkeleton(Font font, ci::Rectf depthArea);
+	void							debugDrawSkeleton( );
 
 
 	//protected:
@@ -117,4 +120,3 @@ public:
 };
 
 #endif /* CINDEROPENNI_H_ */
-//#endif /* USE_KINECT */

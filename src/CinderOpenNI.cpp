@@ -28,16 +28,20 @@ unsigned int getClosestPowerOfTwo(unsigned int n)
 
 #pragma mark Singleton
 CinderOpenNISkeleton* CinderOpenNISkeleton::gCinderOpenNISkeleton = NULL;
-
-CinderOpenNISkeleton* CinderOpenNISkeleton::getInstance(){
+CinderOpenNISkeleton* CinderOpenNISkeleton::getInstance() {
 	if (!gCinderOpenNISkeleton){
 		gCinderOpenNISkeleton = new CinderOpenNISkeleton();
 	}
 	return gCinderOpenNISkeleton;
 }
+void CinderOpenNISkeleton::shutdown(){
+	gCinderOpenNISkeleton->mContext.Shutdown();
+	gCinderOpenNISkeleton = NULL;
+}
 
 #pragma mark CinderOpenNISkeleton
 CinderOpenNISkeleton::CinderOpenNISkeleton() {
+	_slot = 0;
 	mNeedPose = FALSE;
 	//gCinderOpenNISkeleton->mStrPose[20];
 	pDepthTexBuf = NULL;
@@ -46,8 +50,10 @@ CinderOpenNISkeleton::CinderOpenNISkeleton() {
 	maxUsers = 15;
 }
 
-void CinderOpenNISkeleton::shutDown() {
-	mContext.Shutdown();
+CinderOpenNISkeleton::~CinderOpenNISkeleton() {
+	app::console() << "Shutting down!" << std::endl;
+	shouldStopUpdating();
+	gCinderOpenNISkeleton->mContext.Shutdown();
 }
 
 
@@ -251,9 +257,19 @@ XnStatus CinderOpenNISkeleton::setupCallbacks()
 void XN_CALLBACK_TYPE CinderOpenNISkeleton::User_NewUser(xn::UserGenerator& generator, XnUserID nId, void* pCookie)
 {
 	app::console() <<  "(ONEDAY)::OpenNICallback::User_NewUser: " << nId << endl;
+
+	if( gCinderOpenNISkeleton->_isFirstCalibrationComplete
+			&& gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().IsCalibrationData( gCinderOpenNISkeleton->_slot) ) {
+
+		app::console() <<  "(ONEDAY)::OpenNICallback::User_NewUser - REUSING TRACKING!!: " << nId << endl;
+		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().LoadCalibrationData( nId, gCinderOpenNISkeleton->_slot );
+		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().StartTracking( nId );
+
+		return;
+	}
+
 	// New user found
-	if (gCinderOpenNISkeleton->mNeedPose)
-	{
+	if (gCinderOpenNISkeleton->mNeedPose) {
 		gCinderOpenNISkeleton->mUserGenerator.GetPoseDetectionCap().StartPoseDetection(gCinderOpenNISkeleton->mStrPose, nId);
 	}
 	else
@@ -290,8 +306,15 @@ void XN_CALLBACK_TYPE CinderOpenNISkeleton::UserCalibration_CalibrationEnd(xn::S
 	{
 		// Calibration succeeded
 
-		app::console() <<  "(ONEDAY)::OpenNICallback::UserCalibration_CalibrationEnd: " <<  nId <<endl;
+		if( !gCinderOpenNISkeleton->_isFirstCalibrationComplete ) {
+			gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().SaveCalibrationData( nId, gCinderOpenNISkeleton->_slot );
+			gCinderOpenNISkeleton->_isFirstCalibrationComplete = true;
+		}
+
+		app::console() <<  "(ONEDAY)::OpenNICallback::UserCalibration_CalibrationEnd: " <<  nId << std::endl;
+		float mSkeletonSmoothing = 0.5f;
 		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().StartTracking(nId);
+		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().SetSmoothing( mSkeletonSmoothing );
 	}
 	else
 	{
@@ -493,7 +516,7 @@ void CinderOpenNISkeleton::debugOutputNodeTypes()
 	}
 }
 
-/* Drawing methods */
+/* ging methods */
 void CinderOpenNISkeleton::debugDrawLabels( Font font, ci::Rectf depthArea )
 {
 
@@ -526,8 +549,11 @@ void CinderOpenNISkeleton::debugDrawLabels( Font font, ci::Rectf depthArea )
 	}
 }
 /* Drawing methods */
-void CinderOpenNISkeleton::debugDrawSkeleton(Font font, ci::Rectf depthArea)
+void CinderOpenNISkeleton::debugDrawSkeleton()
 {
+	if(!mUserGenerator)
+		return;
+
 	static bool isTracking = false;
 	for (int i = 0; i < maxUsers; ++i)
 	{
@@ -541,11 +567,11 @@ void CinderOpenNISkeleton::debugDrawSkeleton(Font font, ci::Rectf depthArea)
 			}
 
 
-			glLineWidth(2.0);
+			glLineWidth(5.0);
 			glBegin(GL_LINES);
 			glColor4f(1-Colors[currentUsers[i]%nColors][0],
 					  1-Colors[currentUsers[i]%nColors][1],
-					  1-Colors[currentUsers[i]%nColors][2], 1);
+					  1-Colors[currentUsers[i]%nColors][2], 0.25);
 
 
 			// HEAD TO NECK
@@ -676,8 +702,8 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint2, joint2);
 
 	// Not sure of joint confidence, just draw previous?
-	if (joint1.fConfidence < gCinderOpenNISkeleton->mJointConfidence || joint2.fConfidence < gCinderOpenNISkeleton->mJointConfidence)
-			return;
+//	if (joint1.fConfidence < gCinderOpenNISkeleton->mJointConfidence || joint2.fConfidence < gCinderOpenNISkeleton->mJointConfidence)
+//			return;
 
 	// Retreive points
 	XnPoint3D pt[2];
@@ -697,7 +723,9 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 	ci::Vec2i windowSize = ci::app::App::get()->getWindowSize();	// Dimensions of the application window
 	ci::Vec2i inputSize = getDimensions();	// Dimensions of our image
 	ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 1.0f );
-	scale = ci::Vec3f(0.2, -0.2,0.2);
+	scale *= 2.0f;
+	scale.y *= 2.0f;
+//	scale = ci::Vec3f(0.2, -0.2,0.2);
 
 	// Draw
 	glVertex3i(pt[0].X * scale.x, pt[0].Y * scale.y, pt[0].Z * scale.z);
