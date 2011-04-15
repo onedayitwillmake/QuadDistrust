@@ -51,70 +51,77 @@
 
 
 #define distance(a,b,c) { float d; distance2(a,b,d); c = (float)sqrt((double)d); }
+#define maxForceCount 8
 
 struct IndexedQuad
 {
-	size_t index;
-	float skyLimit;
-	float mass;
-	ci::Vec3f position;
-	ci::Vec3f velocity;
-	ci::Vec3f acceleration;
+	size_t		index;
+	float 		skyLimit;
+	float 		mass;
+	ci::Vec3f	position;
+	ci::Vec3f	velocity;
+	ci::Vec3f	acceleration;
+};
+
+struct Force
+{
+	bool		isActive;
+	ci::Vec3f	oldPosition;
+	ci::Vec3f	position;
 };
 
 class QuadDistrustApp : public ci::app::AppBasic {
 public:
-	void 	prepareSettings( ci::app::AppBasic::Settings *settings );
-	void 	setup();
-	void 	setupCamera();
-	void 	setupQuadSprites();
-	void	setupMaterials();
-#ifdef  __USE_KINECT
-	void	setupKinect();
-#endif
+	void 		prepareSettings( ci::app::AppBasic::Settings *settings );
+	void 		setup();
+	void 		setupCamera();
+	void 		setupQuadSprites();
+	void		setupMaterials();
+	void	 	setupShader();
+	void		setupKinect();
 
-	void	resize( ci::app::ResizeEvent event );
-	void	mouseDown( ci::app::MouseEvent event );
-	void	mouseMove( ci::app::MouseEvent event );
-	void	mouseDrag( ci::app::MouseEvent event );
-	void	mouseUp( ci::app::MouseEvent event );
-	void 	keyDown( ci::app::KeyEvent event );
+	// Application updates
+	void		resize( ci::app::ResizeEvent event );
+	void		mouseDown( ci::app::MouseEvent event );
+	void		mouseMove( ci::app::MouseEvent event );
+	void		mouseDrag( ci::app::MouseEvent event );
+	void		mouseUp( ci::app::MouseEvent event );
+	void 		keyDown( ci::app::KeyEvent event );
 
 	void 		update();
 	void 		draw();
 
+	// Kinect
 	void 		drawKinectDepth();
-#ifdef  __USE_KINECT
-	ci::Rectf	getKinectDepthArea();
-#endif
+	ci::Rectf	getKinectDepthArea( int width, int height );
 
-	//
-	ci::gl::Texture		_texture;
-	ci::MayaCamUI		_mayaCam;
-	ci::TriMesh*		_particleMesh;
-	ci::TriMesh*		_planeMesh;
-	std::vector< IndexedQuad > _indexedQuads;
-	float 					_quadMaxSize;
-	float					_quadMaxDistortion;
+	// Scene
+	ci::MayaCamUI					_mayaCam;
+	ci::TriMesh*					_particleMesh;
+	ci::TriMesh*					_planeMesh;
 
 	// Particle properties
-	// GRAVITY
-	std::vector< ci::Vec3f >	_forces;
+	std::vector< Force >			_forces;
 
-	ci::gl::Light*		_light;
-	ci::gl::Material*	_material;
-	gl::Texture		mParticleTexture;
+	// Scene properties
+	std::vector< IndexedQuad >		 _indexedQuads;
+	float 							_quadMaxSize;
+	float							_quadMaxDistortion;
+	ci::gl::Light*					_light;
+	float							mDirectional;
 
-	ci::gl::GlslProg	mShader;
-	float				mAngle;
-	ofxSimplex*			_simplexNoise;
+	ci::gl::Material*				_material;
+	ci::gl::Texture						_textureParticle;
 
-	float		mouseX;
-	float		mouseY;
-	bool		mMOUSEDOWN;
-	float		mDirectional;
+	ci::gl::GlslProg				_shader;
+	ofxSimplex*						_simplexNoise;
 
-	ci::Vec3f	mMouseLoc;
+	// Mouse
+	bool							_mouseIsDown;
+	ci::Vec2f						_mousePosition;
+
+	// Tick
+	float							mAngle;
 
 
 	// Material
@@ -165,39 +172,26 @@ void QuadDistrustApp::setup()
 {
 	_light = new ci::gl::Light( ci::gl::Light::DIRECTIONAL, 0);
 //	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
+
+	_forces.resize( CINDERSKELETON->maxUsers * 2 );
+	for(int i = 0; i < _forces.size(); i++ ) {
+		_forces[i].position = ci::Vec3f::zero();
+		_forces[i].oldPosition = ci::Vec3f::zero();
+	}
 	mDirectional = 1.0f;
 	setupMaterials();
 	setupQuadSprites();
-#ifdef __USE_KINECT
 	setupKinect();
-#endif
 
 	ci::Rand::randSeed( clock() );
 	_simplexNoise = new ofxSimplex();
 
-
-	try {
-		mShader = ci::gl::GlslProg( loadResource( RES_PASSTHRU_VERT ), loadResource( RES_BLUR_FRAG ) );
-	}
-	catch( ci::gl::GlslProgCompileExc &exc ) {
-		std::cout << "Shader compile error: " << std::endl;
-		std::cout << exc.what();
-	} catch( ... ) {
-		std::cout << "Unable to load shader" << std::endl;
-	}
+	setupShader();
 
 	// Mouse
-	mMouseLoc 	= ci::Vec3f::zero();
-	mMOUSEDOWN	= false;
+	_mousePosition 	= ci::Vec2f::zero();
+	_mouseIsDown	= false;
 
-	// Forces
-//	int forceCount = 8;
-//	for(int i = 0; i < forceCount; i++) {
-//		ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
-//		pos.y = fabs(pos.y);
-////		pos.normalize();
-//		_forces.push_back( pos );
-//	}
 
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
@@ -209,10 +203,25 @@ void QuadDistrustApp::setup()
 	ci::gl::enableDepthRead();
 	ci::gl::enableAlphaBlending();
 
-	mParticleTexture	= gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
+	_textureParticle	= ci::gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
+
+
 
 
 	getFocus();
+}
+
+void QuadDistrustApp::setupShader()
+{
+	try {
+		_shader = ci::gl::GlslProg( loadResource( RES_PASSTHRU_VERT ), loadResource( RES_BLUR_FRAG ) );
+	}
+	catch( ci::gl::GlslProgCompileExc &exc ) {
+		std::cout << "Shader compile error: " << std::endl;
+		std::cout << exc.what();
+	} catch( ... ) {
+		std::cout << "Unable to load shader" << std::endl;
+	}
 }
 
 
@@ -274,9 +283,10 @@ void QuadDistrustApp::setupQuadSprites()
 //	calculateTriMeshNormals( *_particleMesh );
 }
 
-#ifdef  __USE_KINECT
+
 void QuadDistrustApp::setupKinect()
 {
+#ifdef  __USE_KINECT
 	// For now we have to manually change to the application path. Bug?
 	chdir( getAppPath().c_str() );
 
@@ -336,8 +346,9 @@ void QuadDistrustApp::setupKinect()
 	CHECK_RC(nRetVal, "StartGenerating", true);
 
 	skeleton->shouldStartUpdating();
-}
 #endif
+
+}
 
 void QuadDistrustApp::setupCamera()
 {
@@ -381,27 +392,25 @@ void QuadDistrustApp::setupMaterials()
 
 void QuadDistrustApp::mouseDown( ci::app::MouseEvent event )
 {
-	mMOUSEDOWN = true;
+	_mouseIsDown = true;
 	_mayaCam.mouseDown( event.getPos() );
 }
 
 void QuadDistrustApp::mouseDrag( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
-	mouseX = event.getPos().x;
-	mouseY = event.getPos().y;
+	_mousePosition = event.getPos();
 }
 
 void QuadDistrustApp::mouseMove( ci::app::MouseEvent event )
 {
 	_mayaCam.mouseDrag( event.getPos(), event.isLeftDown(), event.isMetaDown(), event.isRightDown() );
-	mouseX = event.getPos().x;
-	mouseY = event.getPos().y;
+	_mousePosition = event.getPos();
 }
 
 void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 {
-	mMOUSEDOWN = false;
+	_mouseIsDown = false;
 	_mayaCam.mouseDown( event.getPos() );
 }
 
@@ -472,7 +481,6 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
-	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
 
 	static bool didTest = false;
 	static ofxSinCosLUT sinCosLUT;
@@ -486,7 +494,7 @@ void QuadDistrustApp::update()
 //		}
 		didTest = true;
 	}
-	if( ! mMOUSEDOWN )
+	if( ! _mouseIsDown )
 		mDirectional -= ( mDirectional - 0.985f ) * 0.1f;
 	else
 		mDirectional -= ( mDirectional - 0.51f ) * 0.1f;
@@ -519,24 +527,49 @@ void QuadDistrustApp::update()
 	float maxDist = 1000.0f;
 	float maxDistSQ = maxDist*maxDist;
 
+#ifdef __USE_KINECT
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+
+	XnSkeletonJoint jointsOfInterest[3] = {XN_SKEL_LEFT_HAND, XN_SKEL_RIGHT_HAND, XN_SKEL_HEAD};
 	// Add force per hand
-	_forces.clear();
-	int maxForceCount = 8;
+	int forceIterator = 0;
 	for (int i = 0; i < skeleton->_allUsers.size(); ++i)
 	{
+		// Not tracking - set forces for this user to false
 		XnUserID userId = skeleton->currentUsers[i];
-		if( !skeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) ) {
+		if( !skeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) )
+		{
 			skeleton->_allUsers[i].isValid = false;
+
+			_forces[forceIterator].isActive = false;
+			_forces[forceIterator+1].isActive = false;
+			forceIterator += 2;
 			continue;
 		}
 
-		_forces.push_back( skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND] );
-		_forces.push_back( skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND] );
+		int forcesPerUser = 2;
+		// Create i, i+1, i+n force objects per user
+		for(int j = 0; j < forcesPerUser; ++j)
+		{
+//			app::console() << "Updating:" << i+j << endl;
+			_forces[forceIterator+j].isActive = true;
+			_forces[forceIterator+j].oldPosition = _forces[i+j].position;
+			_forces[forceIterator+j].position = skeleton->_allUsers[i].projectedPositions[ jointsOfInterest[j] ];
+		}
+
+
+//		_forces[i].position = (_forces[i].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND]) * ease;
+//		_forces[i+1].position -= (_forces[i+1].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND]) * ease;
+//		delta = (_forces[i+1].oldPosition - _forces[i+1].position) * ease;
+//		_forces[i+1].position -= delta;
+		forceIterator += 2;
+
 	}
+#endif
 
 
 
-	size_t iglen = _forces.size();
+	size_t forcesLength = _forces.size();
 	while(j < i)
 	{
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
@@ -544,9 +577,12 @@ void QuadDistrustApp::update()
 
 
 		// Update forces
-		for(int ig = 0; ig < iglen; ig++ )
+		for(int ig = 0; ig < forcesLength; ig++ )
 		{
-			ci::Vec3f delta = _forces[ig]-iq->position;
+			if(!_forces[ig].isActive)
+				continue;
+
+			ci::Vec3f delta = _forces[ig].position - iq->position;
 			float s = delta.lengthSquared();
 			if( s > 10.0f && s < maxDistSQ ) // is within range
 			{
@@ -638,20 +674,36 @@ void QuadDistrustApp::draw()
 	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
 
 	// Draw 2D
-//	ci::gl::pushMatrices();
 	ci::gl::setMatricesWindow( getWindowSize() );
 	ci::gl::disableDepthRead();
 	ci::gl::disableDepthWrite();
 	ci::gl::enableAlphaBlending();
-
-	drawKinectDepth();
+//	drawKinectDepth();
 
 	// Draw 3D
 	ci::gl::setMatrices( _mayaCam.getCamera() );
+	ci::gl::enableAdditiveBlending();
+
+	// Draw force billboards
+	ci::Vec3f mRight, mUp;
+	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
+	_textureParticle.bind();
+	glEnable( GL_TEXTURE_2D );
+	size_t len = _forces.size();
+	float textureScale = 500.0f;
+	for(int i = 0; i < len; ++i ) {
+		if( !_forces[i].isActive )
+			continue;
+		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
+	}
+	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+	glDisable( GL_TEXTURE_2D );
+
+
 	ci::gl::enableDepthRead();
 	ci::gl::enableDepthWrite();
 	ci::gl::disableAlphaBlending();
-	ci::gl::enableAdditiveBlending();
+
 
 
 	_light->update( _mayaCam.getCamera() );
@@ -659,32 +711,27 @@ void QuadDistrustApp::draw()
 	if(!moveLight)
 	{
 		// Move light
-			float r = 500;
-			float x = ci::math<float>::cos( mAngle ) * r;
-			float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 1000;
-			float z = ci::math<float>::sin( mAngle ) * r;
-
-			ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
+		float r = 500;
+		float x = ci::math<float>::cos( mAngle ) * r;
+		float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 1000;
+		float z = ci::math<float>::sin( mAngle ) * r;
+		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 
 //			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
-//			float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.2 ) ) * 0.889f + 0.1f;
-//			std::cout << dir << std::endl;
-
-//			std::cout << dir << std::endl;
-			GLfloat light_position[] = { x, y, z, 0.00001f };
-			glLightfv( GL_LIGHT0, GL_POSITION, light_position );
-//			movedOnce = true;
+		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.2 ) ) * 0.889f + 0.1f;
+		GLfloat light_position[] = { x, y, z, dir };
+		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
 
 
 
 	// BEGIN SHADER
-	mShader.bind();
-	mShader.uniform( "NumEnabledLights", 1 );
+	_shader.bind();
+	_shader.uniform( "NumEnabledLights", 1 );
 		ci::gl::draw( *_particleMesh );
 		float cubeSize = 25;
 		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
-	mShader.unbind();
+	_shader.unbind();
 	// END SHADER
 
 #ifdef  __USE_KINECT
@@ -695,25 +742,8 @@ void QuadDistrustApp::draw()
 	_light->disable();
 	glColor3f( 1.0f, 1.0f, 0.1f );
 
-
-	// Draw force billboards
-	Vec3f mRight, mUp;
-	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
-
-	size_t len = _forces.size();
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
 
-	glEnable( GL_TEXTURE_2D );
-	mParticleTexture.bind();
-	for(int i = 0; i < len; ++i ) {
-		ci::gl::drawBillboard( _forces[i], ci::Vec2f(100.0f, 100.0f), 0.0f, mRight, mUp);
-//		if(ci::Rand::randFloat() < 0.005) {
-//			ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
-//			pos.y = fabs(pos.y);
-//			_forces[i] = pos;
-//		}
-	}
-	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(100.0f, 100.0f), 0.0f, mRight, mUp);
 //	ci::gl::drawFrustum( _light->getShadowCamera() );
 	// Draw floor
 	ci::gl::enableWireframe();
@@ -736,7 +766,7 @@ void QuadDistrustApp::drawKinectDepth()
 	}
 
 	// Convert to texture
-	ci::Rectf depthArea = getKinectDepthArea();
+	ci::Rectf depthArea = getKinectDepthArea( 320/2, 240/2 );
 	gl::draw( gl::Texture( depthSurface ), depthArea );
 
 	// Debug draw
@@ -748,10 +778,8 @@ void QuadDistrustApp::drawKinectDepth()
 #ifdef  __USE_KINECT
 // Returns the area where the kinect depth map is drawn
 // This is used when drawing labels, to draw the labels at the relative location by scaling, then translating the values returned by the kinect
-ci::Rectf QuadDistrustApp::getKinectDepthArea()
+ci::Rectf QuadDistrustApp::getKinectDepthArea( int width, int height )
 {
-	int width = 160;
-    int height = 120;
     int padding = 10;
     int y1 = getWindowSize().y - height;
     int y2 = y1 + height;
@@ -761,4 +789,4 @@ ci::Rectf QuadDistrustApp::getKinectDepthArea()
 #endif
 
 
-CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(0) )
+CINDER_APP_BASIC( QuadDistrustApp, ci::app::RendererGl(1) )
