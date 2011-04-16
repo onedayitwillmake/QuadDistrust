@@ -59,7 +59,6 @@ struct IndexedQuad
 	float 		skyLimit;
 	float 		mass;
 	float		inverseMass;
-	float		charge;
 	ci::Vec3f	position;
 	ci::Vec3f	velocity;
 	ci::Vec3f	acceleration;
@@ -68,6 +67,7 @@ struct IndexedQuad
 struct Force
 {
 	bool		isActive;
+	float		charge;
 	ci::Vec3f	oldPosition;
 	ci::Vec3f	position;
 };
@@ -387,7 +387,7 @@ void QuadDistrustApp::setupMaterials()
 	_matEmission		= ci::ColorA( 0.4f/3, 0.7f/3, 1.0f/3, 1.0f );
 	_matShininess		= 64.0f;
 
-	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT_AND_BACK );
+	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT);
 	_material->apply();
 }
 
@@ -525,15 +525,13 @@ void QuadDistrustApp::update()
 	mCounter += 0.01;
 
 
-	float force = 0.7f;
-	float minDist = 300.0f;
-	float maxDist = 3500.0f;
-	float maxDistSQ = maxDist*maxDist;
+
 
 #ifdef __USE_KINECT
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
 
 	XnSkeletonJoint jointsOfInterest[3] = {XN_SKEL_LEFT_HAND, XN_SKEL_RIGHT_HAND, XN_SKEL_HEAD};
+	float forceCharge[3] = {1.0f, -1.0f, 0.5};
 	// Add force per hand
 	int forceIterator = 0;
 	for (int i = 0; i < skeleton->_allUsers.size(); ++i)
@@ -553,6 +551,7 @@ void QuadDistrustApp::update()
 		for(int j = 0; j < forcesPerUser; ++j)
 		{
 			_forces[forceIterator+j].isActive = true;
+			_forces[forceIterator+j].charge = forceCharge[i+j];
 			_forces[forceIterator+j].oldPosition = _forces[i+j].position;
 			_forces[forceIterator+j].position = skeleton->_allUsers[i].projectedPositions[ jointsOfInterest[j] ];
 		}
@@ -569,6 +568,10 @@ void QuadDistrustApp::update()
 
 
 
+	float force = 0.1f;
+	float minDist = 300.0f;
+	float maxDist = 3500.0f;
+	float maxDistSQ = maxDist*maxDist;
 	size_t forcesLength = _forces.size();
 	while(j < i)
 	{
@@ -582,42 +585,24 @@ void QuadDistrustApp::update()
 			if(!_forces[ig].isActive)
 				continue;
 
-			Vec3f dir =_forces[ig].position - iq->position;
-			float distSqrd = dir.lengthSquared();
-			float radiusSum = 125.0f;
-			float radiusSqrd = radiusSum * radiusSum;
-			float thisQTimesInvM = iq->inverseMass * 1.0f;
-
-			if( distSqrd < radiusSqrd && distSqrd > 0.1f )
+			ci::Vec3f delta = _forces[ig].position - iq->position;
+			float s = delta.lengthSquared();
+			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
 			{
-				float per = 1.0f - distSqrd/radiusSqrd;
-				float E = iq->charge / distSqrd;
-				float F = E * thisQTimesInvM;
+				// normalize
+				float dist = ci::math<float>::sqrt( s );
+				float invS = 1.0f / dist;
+				delta *= invS;
 
-				if( F > 15.0f )
-					F = 15.0f;
+				// Apply inverse force
+				float inverseForce = 1.0f - dist/maxDist * force;//(1.0-(dist/maxDist)) * force / iq->mass;
+				delta *= inverseForce;
 
-				dir.normalize();
-				dir *= F * per * 2.0f;
+				if( ci::Rand::randFloat() < 0.3f) delta *= -1.0f;
 
-				iq->velocity += dir;
+				iq->velocity += delta;
+//				nZ += 0.005f;
 			}
-//			ci::Vec3f delta = _forces[ig].position - iq->position;
-//			float s = delta.lengthSquared();
-//			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
-//			{
-//				// normalize
-////				float dist = ci::math<float>::sqrt( s );
-////				float invS = (1.0f) / dist;
-////				delta *= invS;
-////
-////				// Apply inverse force
-////				float inverseForce = (1.0-(dist/maxDist)) * force / iq->mass;
-////				delta *= inverseForce;
-////				iq->velocity += delta;
-//
-////				nZ += 0.005f;
-//			}
 		}
 
 		// Apply simplex noise
@@ -627,7 +612,7 @@ void QuadDistrustApp::update()
 		nNoise *= TWO_PI*2;
 
 		iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
-		iq->velocity.y += sinCosLUT._sin( nNoise ) * maxSpeed * nZ; // Apply gravity
+		iq->velocity.y += sinCosLUT._sin( nNoise ) * 0.5 * nZ; // Apply gravity
 		iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
 
 
@@ -719,10 +704,10 @@ void QuadDistrustApp::draw()
 		float z = ci::math<float>::sin( mAngle ) * r;
 		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 
-//			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
+		_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
 		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
-		GLfloat light_position[] = { x, y, z, dir };
-		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+//		GLfloat light_position[] = { x, y, z, dir };
+//		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
 
 
@@ -754,13 +739,13 @@ void QuadDistrustApp::draw()
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
-	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
 
 
 #ifdef  __USE_KINECT
-	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
-	skeleton->debugDrawSkeleton();
+//	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+//	skeleton->debugDrawSkeleton();
 #endif
 
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
