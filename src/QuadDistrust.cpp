@@ -49,7 +49,7 @@
   c += tmp * tmp;\
 }
 
-
+#define quadRandomLifespan ci::Rand::randFloat( 400 * 0.75, 400)
 #define distance(a,b,c) { float d; distance2(a,b,d); c = (float)sqrt((double)d); }
 #define maxForceCount 8
 
@@ -62,6 +62,10 @@ struct IndexedQuad
 	ci::Vec3f	position;
 	ci::Vec3f	velocity;
 	ci::Vec3f	acceleration;
+
+	float		age;
+	float		lifespan;
+	float 		agePer;
 };
 
 struct Force
@@ -92,6 +96,14 @@ public:
 
 	void 		update();
 	void 		draw();
+
+	// Camera
+	bool		shouldAutoRotate;
+	float		autoRotationSpeed;
+	ci::Vec2f	autoRotationMouse;
+	void 		startAutoRotation();
+	void 		stopAutoRotation();
+	void		handleAutoRotation();
 
 	// Kinect
 	void 		drawKinectDepth();
@@ -279,12 +291,13 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
 		iq.mass = ci::Rand::randFloat(0.5, 2.0);
 		iq.inverseMass = 1.0f / iq.mass;
+		iq.age = 1.0f;
+		iq.lifespan = quadRandomLifespan;
 		_indexedQuads.push_back( iq );
 	}
 
 //	calculateTriMeshNormals( *_particleMesh );
 }
-
 
 void QuadDistrustApp::setupKinect()
 {
@@ -367,6 +380,8 @@ void QuadDistrustApp::setupCamera()
 	cam.setCenterOfInterestPoint( ci::Vec3f::zero() );
 	cam.setPerspective( cameraFOV, getWindowAspectRatio(), cameraNear, cameraFar );
 	cam.setViewDirection( ci::Vec3f(0, 0, 1 ) );
+
+	autoRotationSpeed = 5.0f;
 
 	// Set mayacamera
 	_mayaCam.setCurrentCam( cam );
@@ -458,6 +473,10 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 
 		shouldUpdateMaterial = true;
 	}
+	else if( event.getChar() == 'r' || event.getChar() == 'R' ){
+		if(shouldAutoRotate) stopAutoRotation();
+		else startAutoRotation();
+	}
 
 
 	// Screenshot
@@ -474,6 +493,23 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 }
 
 
+void QuadDistrustApp::startAutoRotation() {
+	shouldAutoRotate = true;
+	autoRotationMouse = ci::Vec2f(0, 0);
+	_mayaCam.mouseDown( autoRotationMouse );
+}
+
+void QuadDistrustApp::stopAutoRotation() {
+	shouldAutoRotate = false;
+}
+
+void QuadDistrustApp::handleAutoRotation() {
+	if(!shouldAutoRotate)
+		return;
+
+	autoRotationMouse.x -= 0.5f;//autoRotationSpeed;
+	_mayaCam.mouseDrag( autoRotationMouse, true, false, false );
+}
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
@@ -483,7 +519,6 @@ void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 
 void QuadDistrustApp::update()
 {
-
 	static bool didTest = false;
 	static ofxSinCosLUT sinCosLUT;
 	static ci::Perlin	perlin;
@@ -578,6 +613,8 @@ void QuadDistrustApp::update()
 		IndexedQuad* iq = &_indexedQuads[indexQuadIterator];
 		ci::Vec3f noisePosition = vec[j];
 
+		iq->age++;
+		iq->agePer = iq->age / iq->lifespan;
 
 		// Update forces
 		for(int ig = 0; ig < forcesLength; ig++ )
@@ -632,11 +669,13 @@ void QuadDistrustApp::update()
 		iq->velocity *= 0.98f;
 
 
-		if(vec[j].y > iq->skyLimit)
+		if(iq->age > iq->lifespan/* || vec[j].y > iq->skyLimit*/)
 		{
 			float radius = 2000;
 
 			iq->velocity = ci::Vec3f::zero();
+			iq->age = 1.0f;
+			iq->lifespan = quadRandomLifespan;
 
 			// (if X and Z use the same angle we will create a cylinder
 			float xAngle = ci::Rand::randFloat( (float)M_PI * 2.0f );
@@ -644,7 +683,7 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 200;
+			float y = ci::Rand::randFloat() * 1000;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
@@ -667,6 +706,7 @@ void QuadDistrustApp::update()
 	}
 
 	mAngle += 0.2f;
+	handleAutoRotation();
 }
 
 
@@ -740,6 +780,7 @@ void QuadDistrustApp::draw()
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
 //	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+	ZoaDebugFunctions::cameraDrawBillboard( _mayaCam.getCamera(), ci::Vec2f(10, 10) );
 	glDisable( GL_TEXTURE_2D );
 
 
