@@ -380,7 +380,7 @@ void QuadDistrustApp::setupMaterials()
 
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 	_matAmbient			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
-	_matDiffuse			= ci::ColorA( 0.3f, 0.5f, 0.8f, 1.0f );
+	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
 	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
 	_matEmission		= ci::ColorA( 0.4f/3, 0.7f/3, 1.0f/3, 1.0f );
 	_matShininess		= 64.0f;
@@ -540,19 +540,16 @@ void QuadDistrustApp::update()
 		XnUserID userId = skeleton->currentUsers[i];
 		if( !skeleton->mUserGenerator.GetSkeletonCap().IsTracking( userId ) )
 		{
-//			skeleton->_allUsers[i].isValid = false;
-
 			_forces[forceIterator].isActive = false;
 			_forces[forceIterator+1].isActive = false;
 			forceIterator += 2;
 			continue;
 		}
 
-		int forcesPerUser = 2;
 		// Create i, i+1, i+n force objects per user
+		int forcesPerUser = 2;
 		for(int j = 0; j < forcesPerUser; ++j)
 		{
-//			app::console() << "Updating:" << i+j << endl;
 			_forces[forceIterator+j].isActive = true;
 			_forces[forceIterator+j].oldPosition = _forces[i+j].position;
 			_forces[forceIterator+j].position = skeleton->_allUsers[i].projectedPositions[ jointsOfInterest[j] ];
