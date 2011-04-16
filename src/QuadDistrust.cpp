@@ -275,7 +275,7 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.velocity = ci::Vec3f::zero();
 		iq.acceleration = ci::Vec3f::zero();
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
-		iq.mass = ci::Rand::randFloat(1.0, 3.0);
+		iq.mass = ci::Rand::randFloat(0.5, 2.0);
 
 		_indexedQuads.push_back( iq );
 	}
@@ -523,8 +523,8 @@ void QuadDistrustApp::update()
 	mCounter += 0.01;
 
 
-	float force = 2.5f;
-	float minDist = 100.0f;
+	float force = 0.7f;
+	float minDist = 300.0f;
 	float maxDist = 3500.0f;
 	float maxDistSQ = maxDist*maxDist;
 
@@ -593,7 +593,7 @@ void QuadDistrustApp::update()
 				delta *= invS;
 
 				// Apply inverse force
-				float inverseForce = (1.0-(dist/maxDist)) * force * iq->mass;
+				float inverseForce = (1.0-(dist/maxDist)) * force / iq->mass;
 				delta *= inverseForce;
 				iq->velocity += delta;
 
@@ -662,7 +662,7 @@ void QuadDistrustApp::update()
 		++indexQuadIterator;
 	}
 
-	mAngle += 0.25f;
+	mAngle += 0.2f;
 }
 
 
@@ -683,23 +683,6 @@ void QuadDistrustApp::draw()
 
 	// Draw 3D
 	ci::gl::setMatrices( _mayaCam.getCamera() );
-	ci::gl::enableAdditiveBlending();
-
-	// Draw force billboards
-	ci::Vec3f mRight, mUp;
-	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
-	_textureParticle.bind();
-	glEnable( GL_TEXTURE_2D );
-	size_t len = _forces.size();
-	float textureScale = 500.0f;
-	for(int i = 0; i < len; ++i ) {
-		if( !_forces[i].isActive ) continue;
-		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
-	}
-//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
-	glDisable( GL_TEXTURE_2D );
-
-
 	ci::gl::enableDepthRead();
 	ci::gl::enableDepthWrite();
 	ci::gl::disableAlphaBlending();
@@ -718,7 +701,7 @@ void QuadDistrustApp::draw()
 		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 
 //			_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
-		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.2 ) ) * 0.889f + 0.1f;
+		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
 		GLfloat light_position[] = { x, y, z, dir };
 		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
@@ -734,12 +717,33 @@ void QuadDistrustApp::draw()
 	_shader.unbind();
 	// END SHADER
 	_light->disable();
-	glColor3f( 1.0f, 1.0f, 0.1f );
+
+
+	ci::gl::disableDepthRead();
+	ci::gl::disableDepthWrite();
+	ci::gl::enableAdditiveBlending();
+
+
+	// Draw force billboards
+	ci::Vec3f mRight, mUp;
+	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
+	_textureParticle.bind();
+	glEnable( GL_TEXTURE_2D );
+	size_t len = _forces.size();
+	float textureScale = 350.0f;
+	for(int i = 0; i < len; ++i ) {
+		if( !_forces[i].isActive ) continue;
+		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
+	}
+	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+	glDisable( GL_TEXTURE_2D );
+
 
 #ifdef  __USE_KINECT
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
 	skeleton->debugDrawSkeleton();
 #endif
+
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
 
 //	ci::gl::drawFrustum( _light->getShadowCamera() );
