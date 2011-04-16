@@ -137,6 +137,8 @@ public:
 	// Tick
 	float							mAngle;
 
+	bool							shouldApplyForces;
+	bool							shouldDrawSkeleton;
 
 	// Material
 	ci::ColorA	_matNone;
@@ -219,9 +221,8 @@ void QuadDistrustApp::setup()
 
 	_textureParticle	= ci::gl::Texture( loadImage( loadResource( RES_PARTICLE ) ) );
 
-
-
-
+	shouldApplyForces = true;
+	shouldDrawSkeleton = true;
 	getFocus();
 }
 
@@ -250,8 +251,8 @@ glEnd();
  */
 void QuadDistrustApp::setupQuadSprites()
 {
-	_quadMaxSize = 7.0f;
-	_quadMaxDistortion = 1.0f;
+	_quadMaxSize = 8.0f;
+	_quadMaxDistortion = 2.0f;
 
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
@@ -437,27 +438,27 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	 * Toggle material properties
 	 */
 	bool shouldUpdateMaterial = false;
-	if( event.getChar() == 'd' || event.getChar() == 'D' ){
+	if( event.getChar() == 'd' || event.getChar() == 'D' ){							// Material Diffuse on/off
 		_matUseDiffuse = ! _matUseDiffuse;
 		_material->setDiffuse( _matUseDiffuse ? _matDiffuse : _matNone );
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 'a' || event.getChar() == 'A' ){
+	else if( event.getChar() == 'a' || event.getChar() == 'A' ){					// Material Ambient on/off
 		_matUseAmbient = ! _matUseAmbient;
 		_material->setAmbient( _matUseAmbient ? _matAmbient : _matNone );
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 's' || event.getChar() == 'S' ){
+	else if( event.getChar() == 's' || event.getChar() == 'S' ){					// Material Specular on/off
 		_matUseSpecular = ! _matUseSpecular;
 		_material->setSpecular( _matUseSpecular ? _matSpecular : _matNone );
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 'e' || event.getChar() == 'E' ){
+	else if( event.getChar() == 'e' || event.getChar() == 'E' ){					// Material Emissive on/off
 		_matUseEmissive = ! _matUseEmissive;
 		_material->setEmission( _matUseEmissive ? _matEmission : _matNone );
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == ',' || event.getChar() == '<' ){
+	else if( event.getChar() == ',' || event.getChar() == '<' ){					// Material Shininess +
 		_matShininess *= 0.5f;
 		if( _matShininess < 1.0f ) // Cap
 			_matShininess = 1.0f;
@@ -465,7 +466,7 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == '.' || event.getChar() == '>' ){
+	else if( event.getChar() == '.' || event.getChar() == '>' ){					// Material Shininess -
 		_matShininess *= 2.0f;
 		if( _matShininess > 128.0f ) // Cap
 			_matShininess = 128.0f;
@@ -473,9 +474,15 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 
 		shouldUpdateMaterial = true;
 	}
-	else if( event.getChar() == 'r' || event.getChar() == 'R' ){
+	else if( event.getChar() == 'r' || event.getChar() == 'R' ){					// Autorotation
 		if(shouldAutoRotate) stopAutoRotation();
 		else startAutoRotation();
+	}
+	else if( event.getChar() == 'g' || event.getChar() == 'G' ){					// Autorotation
+		shouldApplyForces = !shouldApplyForces;
+	}
+	else if( event.getChar() == 'b' || event.getChar() == 'B' ){					// Autorotation
+		shouldDrawSkeleton = !shouldDrawSkeleton;
 	}
 
 
@@ -603,8 +610,8 @@ void QuadDistrustApp::update()
 
 
 
-	float force = 0.1f;
-	float minDist = 300.0f;
+	float force = 0.15f;
+	float minDist = 200.0f;
 	float maxDist = 3500.0f;
 	float maxDistSQ = maxDist*maxDist;
 	size_t forcesLength = _forces.size();
@@ -616,32 +623,34 @@ void QuadDistrustApp::update()
 		iq->age++;
 		iq->agePer = iq->age / iq->lifespan;
 
-		// Update forces
-		for(int ig = 0; ig < forcesLength; ig++ )
+		if(shouldApplyForces)
 		{
-			if(!_forces[ig].isActive)
-				continue;
-
-			ci::Vec3f delta = _forces[ig].position - iq->position;
-			float s = delta.lengthSquared();
-			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
+			// Update forces
+			for(int ig = 0; ig < forcesLength; ig++ )
 			{
-				// normalize
-				float dist = ci::math<float>::sqrt( s );
-				float invS = 1.0f / dist;
-				delta *= invS;
+				if(!_forces[ig].isActive)
+					continue;
 
-				// Apply inverse force
-				float inverseForce = 1.0f - dist/maxDist * force;//(1.0-(dist/maxDist)) * force / iq->mass;
-				delta *= inverseForce;
+				ci::Vec3f delta = _forces[ig].position - iq->position;
+				float s = delta.lengthSquared();
+				if( s > minDist*minDist  && s < maxDistSQ ) // is within range
+				{
+					// normalize
+					float dist = ci::math<float>::sqrt( s );
+					float invS = 1.0f / dist;
+					delta *= invS;
 
-				if( ci::Rand::randFloat() < 0.3f) delta *= -1.0f;
+					// Apply inverse force
+					float inverseForce = 1.0f - dist/maxDist * force;//(1.0-(dist/maxDist)) * force / iq->mass;
+					delta *= inverseForce;
 
-				iq->velocity += delta;
-//				nZ += 0.005f;
+					if( ci::Rand::randFloat() < 0.3f) delta = -delta;
+
+					iq->velocity += delta;
+	//				nZ += 0.005f;
+				}
 			}
 		}
-
 		// Apply simplex noise
 		iq->position = vec[j];
 		noisePosition *= 0.0005f;
@@ -683,7 +692,7 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 1000;
+			float y = ci::Rand::randFloat() * 10;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
@@ -779,16 +788,17 @@ void QuadDistrustApp::draw()
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
-//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
-	ZoaDebugFunctions::cameraDrawBillboard( _mayaCam.getCamera(), ci::Vec2f(10, 10) );
+	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
-
+//ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 
 #ifdef  __USE_KINECT
-//	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
-//	skeleton->debugDrawSkeleton();
+	if(shouldDrawSkeleton) {
+		CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+		skeleton->debugDrawSkeleton();
+	}
 #endif
-
+//	ci::gl::draw(_textureParticle, getWindowBounds() );
 	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
 
 //	ci::gl::drawFrustum( _light->getShadowCamera() );

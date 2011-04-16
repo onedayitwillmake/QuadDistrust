@@ -760,11 +760,11 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 		return;
 	}
 
-	ci::Vec3f jointPositionA = _allUsers[player-1].projectedPositions[eJoint1];
-	ci::Vec3f jointPositionB = _allUsers[player-1].projectedPositions[eJoint2];
-	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
-	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
-	return;
+//	ci::Vec3f jointPositionA = _allUsers[player-1].projectedPositions[eJoint1];
+//	ci::Vec3f jointPositionB = _allUsers[player-1].projectedPositions[eJoint2];
+//	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
+//	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
+//	return;
 	XnSkeletonJointPosition joint1, joint2;
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint1, joint1);
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint2, joint2);
