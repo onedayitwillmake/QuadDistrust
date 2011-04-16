@@ -133,7 +133,7 @@ bool CinderOpenNISkeleton::setup()
 	CHECK_RC(nRetVal, "FPS Init", true);
 
     worldOffset.x = -160;
-    worldOffset.y = -160;
+    worldOffset.y = -200;
     worldOffset.z = -2784;
 
 	// Output device production nodes (user, depth, etc)
@@ -147,7 +147,7 @@ bool CinderOpenNISkeleton::setup()
 
 		// Create a bunch of spots to contain our vectors
 		emptySkeleton.projectedPositions.clear();
-		for( int j = 0; j < XN_SKEL_RIGHT_FOOT+1; ++j) {
+		for( int j = 0; j <= XN_SKEL_RIGHT_FOOT+1; ++j) {
 			emptySkeleton.projectedPositions.push_back( ci::Vec3f::zero() );
 		}
 
@@ -664,7 +664,7 @@ void CinderOpenNISkeleton::updateUsers()
 		jointPositions[0] = firstJoint;
 
 		// Loop through all joints 1-24 and fill data
-		for (int j = XN_SKEL_HEAD; j < XN_SKEL_RIGHT_FOOT; ++j)
+		for (int j = XN_SKEL_HEAD; j <= XN_SKEL_RIGHT_FOOT; ++j)
 		{
 			XnSkeletonJointPosition currentJointPosition;
 			gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition( userId, (XnSkeletonJoint)j /* current joint - just an interger constant */, currentJointPosition);
@@ -684,7 +684,7 @@ void CinderOpenNISkeleton::updateUsers()
 		scale.y *= -2.0f;
 
 		// Apply offset
-		for(int j = 0; j < totalJoints; ++j)
+		for(int j = 0; j <= totalJoints; ++j)
 		{
 			jointPositions[j].X += gCinderOpenNISkeleton->worldOffset.x;
 			jointPositions[j].X *= scale.x;
@@ -719,7 +719,7 @@ XnStatus CinderOpenNISkeleton::getUserJointInformation(XnUserID playerID, XnPoin
 	jointPositions[0] = firstJoint;
 
 	// Loop through all joints 1-24 and fill data
-	for (int i = XN_SKEL_HEAD; i < XN_SKEL_RIGHT_FOOT; i++)
+	for (int i = XN_SKEL_HEAD; i <= XN_SKEL_RIGHT_FOOT; i++)
 	{
 		XnSkeletonJointPosition currentJointPosition;
 		gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(playerID, (XnSkeletonJoint)i /* current joint - just an interger constant */, currentJointPosition);
@@ -739,7 +739,7 @@ XnStatus CinderOpenNISkeleton::getUserJointInformation(XnUserID playerID, XnPoin
 	scale.y *= -2.0f;
 
 	// Apply offset
-	for(int i = 0; i < totalJoints; i++)
+	for(int i = 0; i <= totalJoints; i++)
 	{
 		jointPositions[i].X += gCinderOpenNISkeleton->worldOffset.x;
 		jointPositions[i].X *= scale.x;
@@ -760,11 +760,11 @@ void CinderOpenNISkeleton::drawLimbDebug(XnUserID player, XnSkeletonJoint eJoint
 		return;
 	}
 
-//	ci::Vec3f jointPositionA = _allUsers[player-1].projectedPositions[eJoint1];
-//	ci::Vec3f jointPositionB = _allUsers[player-1].projectedPositions[eJoint2];
-//	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
-//	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
-//	return;
+	ci::Vec3f jointPositionA = _allUsers[player-1].projectedPositions[eJoint1];
+	ci::Vec3f jointPositionB = _allUsers[player-1].projectedPositions[eJoint2];
+	glVertex3i(jointPositionA.x, jointPositionA.y, jointPositionA.z);
+	glVertex3i(jointPositionB.x, jointPositionB.y, jointPositionB.z);
+	return;
 	XnSkeletonJointPosition joint1, joint2;
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint1, joint1);
 	gCinderOpenNISkeleton->mUserGenerator.GetSkeletonCap().GetSkeletonJointPosition(player, eJoint2, joint2);
