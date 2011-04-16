@@ -212,7 +212,7 @@ void QuadDistrustApp::setup()
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 20 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 10 );
 
 	// Setup OpenGL
 	ci::gl::enableDepthWrite();
@@ -397,13 +397,13 @@ void QuadDistrustApp::setupMaterials()
 
 
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
-	_matAmbient			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
-	_matDiffuse			= ci::ColorA( 0.5f, 0.5f, 0.5f, 1.0f );
+	_matAmbient			= ci::ColorA( 0.3f, 0.3f, 0.3f, 1.0f );
+	_matDiffuse			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
 	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
 	_matEmission		= ci::ColorA( 0.4f/3, 0.7f/3, 1.0f/3, 1.0f );
 	_matShininess		= 64.0f;
 
-	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT);
+	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT_AND_BACK);
 	_material->apply();
 }
 
@@ -761,12 +761,12 @@ void QuadDistrustApp::draw()
 
 
 
-	// BEGIN SHADER
+	// BEGIN draw
 	_shader.bind();
 	_shader.uniform( "NumEnabledLights", 1 );
 		ci::gl::draw( *_particleMesh );
-		float cubeSize = 25;
-		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
+//		float cubeSize = 25;
+//		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
 	_shader.unbind();
 	// END SHADER
 	_light->disable();
@@ -788,7 +788,7 @@ void QuadDistrustApp::draw()
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
-	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
 //ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 

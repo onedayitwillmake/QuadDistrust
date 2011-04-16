@@ -681,7 +681,7 @@ void CinderOpenNISkeleton::updateUsers()
 		ci::Vec2i inputSize = gCinderOpenNISkeleton->getDimensions();	// Dimensions of our image
 		ci::Vec3f scale = ci::Vec3f( windowSize.x / inputSize.x, windowSize.y / inputSize.y, 1.0f );
 		scale *= 2.0f;
-		scale.y *= -2.0f;
+		scale.y *= -1.5f;
 
 		// Apply offset
 		for(int j = 0; j <= totalJoints; ++j)
