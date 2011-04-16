@@ -58,6 +58,8 @@ struct IndexedQuad
 	size_t		index;
 	float 		skyLimit;
 	float 		mass;
+	float		inverseMass;
+	float		charge;
 	ci::Vec3f	position;
 	ci::Vec3f	velocity;
 	ci::Vec3f	acceleration;
@@ -276,7 +278,7 @@ void QuadDistrustApp::setupQuadSprites()
 		iq.acceleration = ci::Vec3f::zero();
 		iq.skyLimit = 2000 + ci::Rand::randFloat(1000);
 		iq.mass = ci::Rand::randFloat(0.5, 2.0);
-
+		iq.inverseMass = 1.0f / iq.mass;
 		_indexedQuads.push_back( iq );
 	}
 
@@ -580,22 +582,42 @@ void QuadDistrustApp::update()
 			if(!_forces[ig].isActive)
 				continue;
 
-			ci::Vec3f delta = _forces[ig].position - iq->position;
-			float s = delta.lengthSquared();
-			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
+			Vec3f dir =_forces[ig].position - iq->position;
+			float distSqrd = dir.lengthSquared();
+			float radiusSum = 125.0f;
+			float radiusSqrd = radiusSum * radiusSum;
+			float thisQTimesInvM = iq->inverseMass * 1.0f;
+
+			if( distSqrd < radiusSqrd && distSqrd > 0.1f )
 			{
-				// normalize
-				float dist = ci::math<float>::sqrt( s );
-				float invS = (1.0f) / dist;
-				delta *= invS;
+				float per = 1.0f - distSqrd/radiusSqrd;
+				float E = iq->charge / distSqrd;
+				float F = E * thisQTimesInvM;
 
-				// Apply inverse force
-				float inverseForce = (1.0-(dist/maxDist)) * force / iq->mass;
-				delta *= inverseForce;
-				iq->velocity += delta;
+				if( F > 15.0f )
+					F = 15.0f;
 
-//				nZ += 0.005f;
+				dir.normalize();
+				dir *= F * per * 2.0f;
+
+				iq->velocity += dir;
 			}
+//			ci::Vec3f delta = _forces[ig].position - iq->position;
+//			float s = delta.lengthSquared();
+//			if( s > minDist*minDist  && s < maxDistSQ ) // is within range
+//			{
+//				// normalize
+////				float dist = ci::math<float>::sqrt( s );
+////				float invS = (1.0f) / dist;
+////				delta *= invS;
+////
+////				// Apply inverse force
+////				float inverseForce = (1.0-(dist/maxDist)) * force / iq->mass;
+////				delta *= inverseForce;
+////				iq->velocity += delta;
+//
+////				nZ += 0.005f;
+//			}
 		}
 
 		// Apply simplex noise
