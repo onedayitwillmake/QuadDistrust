@@ -10,6 +10,10 @@
  * Mario Gonzalez
  * http://onedayitwillmake
  */
+// System
+#include <float.h>
+#include <bitset>
+
 #include "cinder/Camera.h"
 #include "cinder/TriMesh.h"
 #include "cinder/Rand.h"
@@ -25,16 +29,16 @@
 #include "cinder/gl/Light.h"
 #include "cinder/ImageIo.h"
 #include "cinder/Utilities.h"
-#include <float.h>
-#include <bitset>
+// App
 #include "ZoaDebugFunctions.h"
 #include "Resources.h"
 #include "gl.h"
 #include "ofxSimplex.h"
 #include "ofxSinCosLUT.h"
 #include "cinder/Perlin.h"
+#include "SimpleGUI/include/SimpleGUI.h"
 
-#define __USE_KINECT 1
+//#define __USE_KINECT 1
 #ifdef  __USE_KINECT
 #include "CinderOpenNI.h"
 #endif
@@ -51,7 +55,7 @@
 
 #define quadRandomLifespan ci::Rand::randFloat( 400 * 0.75, 400)
 #define distance(a,b,c) { float d; distance2(a,b,d); c = (float)sqrt((double)d); }
-#define maxForceCount 8
+#define maxForceCount 4
 
 struct IndexedQuad
 {
@@ -85,6 +89,7 @@ public:
 	void		setupMaterials();
 	void	 	setupShader();
 	void		setupKinect();
+	void		setupGui();
 
 	// Application updates
 	void		resize( ci::app::ResizeEvent event );
@@ -116,6 +121,12 @@ public:
 
 	// Particle properties
 	std::vector< Force >			_forces;
+	float 							_forceStrength;
+	float 							_forceMinDist;
+	float 							_forceMaxDist;
+	float 							maxSpeed;
+	float 							grav;
+	float							maxVel;
 
 	// Scene properties
 	std::vector< IndexedQuad >		 _indexedQuads;
@@ -139,6 +150,10 @@ public:
 
 	bool							shouldApplyForces;
 	bool							shouldDrawSkeleton;
+	bool							shouldDrawSimpleGui;
+
+	// GUI
+	mowa::sgui::SimpleGUI	*GUI;
 
 	// Material
 	ci::ColorA	_matNone;
@@ -189,11 +204,28 @@ void QuadDistrustApp::setup()
 	_light = new ci::gl::Light( ci::gl::Light::DIRECTIONAL, 0);
 //	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
 
+////// SETUP FORCE PROPERTIES
+#ifdef __USE_KINECT
 	_forces.resize( CINDERSKELETON->maxUsers * 2 );
 	for(int i = 0; i < _forces.size(); i++ ) {
 		_forces[i].position = ci::Vec3f::zero();
 		_forces[i].oldPosition = ci::Vec3f::zero();
 	}
+#else
+	_forces.resize( maxForceCount );
+	for(int i = 0; i < maxForceCount; i++) {
+		ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+		pos.y = fabs(pos.y);
+		_forces[i].isActive = true;
+		_forces[i].position = pos;
+		_forces[i].oldPosition = pos;
+	}
+#endif
+
+	_forceStrength = 0.15f;
+	_forceMinDist = 200.0f;
+	_forceMaxDist = 3500.0f;
+
 	mDirectional = 1.0f;
 	setupMaterials();
 	setupQuadSprites();
@@ -223,6 +255,8 @@ void QuadDistrustApp::setup()
 
 	shouldApplyForces = true;
 	shouldDrawSkeleton = true;
+
+	setupGui();
 	getFocus();
 }
 
@@ -239,6 +273,42 @@ void QuadDistrustApp::setupShader()
 	}
 }
 
+void QuadDistrustApp::setupGui()
+{
+	shouldDrawSimpleGui = true;
+
+	// create
+	GUI = new mowa::sgui::SimpleGUI(this);
+
+	// Intialiaze
+	GUI->textColor = ColorA(1,1,1,1);
+	GUI->lightColor = ColorA(1, 0, 1, 1);
+	GUI->darkColor = ColorA(0.05,0.05,0.05, 1);
+	GUI->bgColor = ColorA(0.15, 0.15, 0.15, 1.0);
+	GUI->addColumn();
+//
+//	GUI->addSeparator();
+#ifdef  __USE_KINECT
+	float tRange = 2000;		// Range of translate calls
+	GUI->addLabel("OpenNI");
+	GUI->addParam("translateX", &CINDERSKELETON->worldOffset.x, -tRange, tRange, CINDERSKELETON->worldOffset.x);
+	GUI->addParam("translateY", &CINDERSKELETON->worldOffset.y, -tRange, tRange, CINDERSKELETON->worldOffset.y);
+	GUI->addParam("translateZ", &CINDERSKELETON->worldOffset.z, -3000, 1000, CINDERSKELETON->worldOffset.z);
+#endif
+
+	GUI->addColumn();		// Place in own column
+	GUI->addLabel("Particle");
+	GUI->addParam("Size", &_quadMaxSize, 1, _quadMaxSize*2, _quadMaxSize);
+	GUI->addParam("distortion", &_quadMaxDistortion, 0, _quadMaxDistortion*2, _quadMaxDistortion);
+	GUI->addParam("maxSpeed", &maxSpeed, 0.1, 10.0f, maxSpeed);
+	GUI->addParam("maxVelocity", &maxVel, 2, maxVel*2, maxVel);
+
+	GUI->addLabel("Force");
+	GUI->addParam("Strength", &_forceStrength, 0.1f, _forceStrength*3, _forceStrength);
+	GUI->addParam("MinDistance", &_forceMinDist, 1, _forceMinDist*3, _forceMinDist);
+	GUI->addParam("MaxDistance", &_forceMaxDist, 100, _forceMaxDist, _forceMaxDist);
+}
+
 
 // Creates a bunch of quads, trying to copy this structure
 /*
@@ -253,6 +323,10 @@ void QuadDistrustApp::setupQuadSprites()
 {
 	_quadMaxSize = 8.0f;
 	_quadMaxDistortion = 2.0f;
+
+	maxSpeed = 1.0f;
+	grav = 0.04;
+	maxVel = 15.0f;
 
 	_particleMesh = new ci::TriMesh();
 	_particleMesh->clear();
@@ -396,11 +470,13 @@ void QuadDistrustApp::setupMaterials()
 	_matUseEmissive		= true;
 
 
+	//GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
+	//GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
-	_matAmbient			= ci::ColorA( 0.3f, 0.3f, 0.3f, 1.0f );
+	_matAmbient			= ci::ColorA( 0.1f, 0.3f, 0.3f, 1.0f );
 	_matDiffuse			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
 	_matSpecular		= ci::ColorA( 1.0f, 1.0f, 1.0f, 1.0f );
-	_matEmission		= ci::ColorA( 0.4f/3, 0.7f/3, 1.0f/3, 1.0f );
+	_matEmission		= ci::ColorA( 0.4f/4, 0.7f/4, 1.0f/4, 1.0f );
 	_matShininess		= 64.0f;
 
 	_material = new ci::gl::Material( _matAmbient, _matDiffuse, _matSpecular, _matShininess, _matEmission, GL_FRONT_AND_BACK);
@@ -430,6 +506,29 @@ void QuadDistrustApp::mouseUp( ci::app::MouseEvent event )
 {
 	_mouseIsDown = false;
 	_mayaCam.mouseDown( event.getPos() );
+}
+
+void QuadDistrustApp::drawKinectDepth()
+{
+#ifdef  __USE_KINECT
+	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+
+	// Get surface
+	Surface8u depthSurface = skeleton->getDepthSurface();
+
+	// Not ready yet
+	if( depthSurface == NULL ) {
+		return;
+	}
+
+	// Convert to texture
+	ci::Rectf depthArea = getKinectDepthArea( 320/2, 240/2 );
+	gl::draw( gl::Texture( depthSurface ), depthArea );
+
+	// Debug draw
+	skeleton->debugDrawLabels( Font( "Arial", 10 ), depthArea );
+#endif
+
 }
 
 void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
@@ -485,11 +584,13 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 		shouldDrawSkeleton = !shouldDrawSkeleton;
 	} else if( event.getChar() == 'F' ){											// Fullscreen
 		setFullScreen( ! isFullScreen() );
+	} else if ( event.getChar() == '0' ) {
+		shouldDrawSimpleGui = !shouldDrawSimpleGui;
 	}
 
 
 	// Screenshot
-	if( event.getChar() == 'p' || event.getChar() == 'p' ) {
+	if( event.getChar() == 'P' ) {
 		std::ostringstream stringBuffer;
 		stringBuffer << clock();
 		std::string aTimeString = stringBuffer.str();
@@ -519,6 +620,101 @@ void QuadDistrustApp::handleAutoRotation() {
 	autoRotationMouse.x -= 0.5f;//autoRotationSpeed;
 	_mayaCam.mouseDrag( autoRotationMouse, true, false, false );
 }
+void QuadDistrustApp::draw()
+{
+	static bool moveLight = false;
+
+	// clear out the window with black
+	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
+
+	// Draw 2D
+	ci::gl::setMatricesWindow( getWindowSize() );
+	ci::gl::disableDepthRead();
+	ci::gl::disableDepthWrite();
+	//drawKinectDepth();
+	ci::gl::color( ci::ColorA(1.0f, 1.0f, 1.0f, 1.0f) );
+
+	ci::gl::enableAlphaBlending();
+
+	// Draw 3D
+	ci::gl::setMatrices( _mayaCam.getCamera() );
+	ci::gl::enableDepthRead();
+	ci::gl::enableDepthWrite();
+	ci::gl::disableAlphaBlending();
+
+
+
+
+	_light->update( _mayaCam.getCamera() );
+	_light->enable();
+	if(!moveLight)
+	{
+		// Move light
+		float r = 500;
+		float x = ci::math<float>::cos( mAngle ) * r;
+		float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 500;
+		float z = ci::math<float>::sin( mAngle ) * r;
+		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
+
+		_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
+		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
+		GLfloat light_position[] = { x, y, z, dir };
+		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+	}
+
+
+
+	// BEGIN draw
+	_shader.bind();
+	_shader.uniform( "NumEnabledLights", 1 );
+		ci::gl::draw( *_particleMesh );
+//		float cubeSize = 25;
+//		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
+	_shader.unbind();
+	// END SHADER
+	_light->disable();
+
+
+	ci::gl::disableDepthRead();
+	ci::gl::disableDepthWrite();
+	ci::gl::enableAdditiveBlending();
+
+
+	// Draw force billboards
+	ci::Vec3f mRight, mUp;
+	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
+	_textureParticle.bind();
+	glEnable( GL_TEXTURE_2D );
+	size_t len = _forces.size();
+	float textureScale = shouldDrawSkeleton ? 400.0f : 3500.0f;
+	for(int i = 0; i < len; ++i ) {
+		if( !_forces[i].isActive ) continue;
+		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
+	}
+	//ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+	glDisable( GL_TEXTURE_2D );
+//ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
+
+#ifdef  __USE_KINECT
+	if(shouldDrawSkeleton) {
+		CinderOpenNISkeleton *skeleton = CINDERSKELETON;
+		skeleton->debugDrawSkeleton();
+	}
+#endif
+//	ci::gl::draw(_textureParticle, getWindowBounds() );
+	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
+
+//	ci::gl::drawFrustum( _light->getShadowCamera() );
+	// Draw floor
+	ci::gl::enableWireframe();
+	ci::gl::draw( *_planeMesh );
+	ci::gl::disableWireframe();
+
+	if( shouldDrawSimpleGui )
+		GUI->draw();
+}
+
+
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
@@ -562,9 +758,6 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float maxSpeed = 1.0f;
-	float grav = 0.04;
-	float maxVel = 15.0f;
 	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
@@ -601,21 +794,31 @@ void QuadDistrustApp::update()
 		}
 
 
-//		_forces[i].position = (_forces[i].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND]) * ease;
-//		_forces[i+1].position -= (_forces[i+1].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND]) * ease;
-//		delta = (_forces[i+1].oldPosition - _forces[i+1].position) * ease;
-//		_forces[i+1].position -= delta;
+//
 		forceIterator += 2;
 
+	}
+
+	_forces[i].position = (_forces[i].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND]) * ease;
+
+#else
+	size_t len = _forces.size();
+	for(int i = 0; i < len; ++i ) {
+
+//	_forces[i+1].position -= (_forces[i+1].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND]) * ease;
+//	delta = (_forces[i+1].oldPosition - _forces[i+1].position) * ease;
+//			_forces[i+1].position -= delta;
+
+		if(ci::Rand::randFloat() < 0.01) {
+					ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
+					pos.y = fabs(pos.y);
+					_forces[i].position = pos;
+				}
 	}
 #endif
 
 
-
-	float force = 0.15f;
-	float minDist = 200.0f;
-	float maxDist = 3500.0f;
-	float maxDistSQ = maxDist*maxDist;
+	float maxDistSQ = _forceMaxDist*_forceMaxDist;
 	size_t forcesLength = _forces.size();
 	while(j < i)
 	{
@@ -635,7 +838,7 @@ void QuadDistrustApp::update()
 
 				ci::Vec3f delta = _forces[ig].position - iq->position;
 				float s = delta.lengthSquared();
-				if( s > minDist*minDist  && s < maxDistSQ ) // is within range
+				if( s > _forceMinDist*_forceMinDist  && s < maxDistSQ ) // is within range
 				{
 					// normalize
 					float dist = ci::math<float>::sqrt( s );
@@ -643,7 +846,7 @@ void QuadDistrustApp::update()
 					delta *= invS;
 
 					// Apply inverse force
-					float inverseForce = 1.0f - dist/maxDist * force;//(1.0-(dist/maxDist)) * force / iq->mass;
+					float inverseForce = 1.0f - dist/_forceMaxDist * _forceStrength;//(1.0-(dist/maxDist)) * force / iq->mass;
 					delta *= inverseForce;
 
 					if( ci::Rand::randFloat() < 0.3f) delta = -delta;
@@ -721,121 +924,6 @@ void QuadDistrustApp::update()
 }
 
 
-
-void QuadDistrustApp::draw()
-{
-	static bool moveLight = false;
-
-	// clear out the window with black
-	ci::gl::clear( ci::Color( 0, 0, 0 ), true );
-
-	// Draw 2D
-	ci::gl::setMatricesWindow( getWindowSize() );
-	ci::gl::disableDepthRead();
-	ci::gl::disableDepthWrite();
-	drawKinectDepth();
-	ci::gl::color( ci::ColorA(1.0f, 1.0f, 1.0f, 1.0f) );
-
-	ci::gl::enableAlphaBlending();
-
-	// Draw 3D
-	ci::gl::setMatrices( _mayaCam.getCamera() );
-	ci::gl::enableDepthRead();
-	ci::gl::enableDepthWrite();
-	ci::gl::disableAlphaBlending();
-
-
-
-
-	_light->update( _mayaCam.getCamera() );
-	_light->enable();
-	if(!moveLight)
-	{
-		// Move light
-		float r = 500;
-		float x = ci::math<float>::cos( mAngle ) * r;
-		float y = ci::math<float>::sin( getElapsedSeconds() * 0.2 ) * 500;
-		float z = ci::math<float>::sin( mAngle ) * r;
-		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
-
-		_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
-		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
-		GLfloat light_position[] = { x, y, z, dir };
-		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
-	}
-
-
-
-	// BEGIN draw
-	_shader.bind();
-	_shader.uniform( "NumEnabledLights", 1 );
-		ci::gl::draw( *_particleMesh );
-//		float cubeSize = 25;
-//		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
-	_shader.unbind();
-	// END SHADER
-	_light->disable();
-
-
-	ci::gl::disableDepthRead();
-	ci::gl::disableDepthWrite();
-	ci::gl::enableAdditiveBlending();
-
-
-	// Draw force billboards
-	ci::Vec3f mRight, mUp;
-	_mayaCam.getCamera().getBillboardVectors(&mRight, &mUp);
-	_textureParticle.bind();
-	glEnable( GL_TEXTURE_2D );
-	size_t len = _forces.size();
-	float textureScale = shouldDrawSkeleton ? 400.0f : 1600.0f;
-	for(int i = 0; i < len; ++i ) {
-		if( !_forces[i].isActive ) continue;
-		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
-	}
-//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
-	glDisable( GL_TEXTURE_2D );
-//ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
-
-#ifdef  __USE_KINECT
-	if(shouldDrawSkeleton) {
-		CinderOpenNISkeleton *skeleton = CINDERSKELETON;
-		skeleton->debugDrawSkeleton();
-	}
-#endif
-//	ci::gl::draw(_textureParticle, getWindowBounds() );
-	ci::Vec3f forceCubeSize = ci::Vec3f(25.0f, 25.0f, 25.0f );
-
-//	ci::gl::drawFrustum( _light->getShadowCamera() );
-	// Draw floor
-	ci::gl::enableWireframe();
-	ci::gl::draw( *_planeMesh );
-	ci::gl::disableWireframe();
-}
-
-
-void QuadDistrustApp::drawKinectDepth()
-{
-#ifdef  __USE_KINECT
-	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
-
-	// Get surface
-	Surface8u depthSurface = skeleton->getDepthSurface();
-
-	// Not ready yet
-	if( depthSurface == NULL ) {
-		return;
-	}
-
-	// Convert to texture
-	ci::Rectf depthArea = getKinectDepthArea( 320/2, 240/2 );
-	gl::draw( gl::Texture( depthSurface ), depthArea );
-
-	// Debug draw
-	skeleton->debugDrawLabels( Font( "Arial", 10 ), depthArea );
-#endif
-
-}
 
 #ifdef  __USE_KINECT
 // Returns the area where the kinect depth map is drawn

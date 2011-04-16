@@ -6,16 +6,19 @@
 CPP_SRCS += \
 ../src/CinderOpenNI.cpp \
 ../src/QuadDistrust.cpp \
+../src/SimpleGUI.cpp \
 ../src/ZoaDebugFunctions.cpp 
 
 OBJS += \
 ./src/CinderOpenNI.o \
 ./src/QuadDistrust.o \
+./src/SimpleGUI.o \
 ./src/ZoaDebugFunctions.o 
 
 CPP_DEPS += \
 ./src/CinderOpenNI.d \
 ./src/QuadDistrust.d \
+./src/SimpleGUI.d \
 ./src/ZoaDebugFunctions.d 
 
 
