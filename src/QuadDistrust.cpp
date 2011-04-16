@@ -312,7 +312,7 @@ void QuadDistrustApp::setupKinect()
 
     std::cout << "CurrentWorkingDirectory is:" << cwd << std::endl;
     std::cout << "AppPath: " << this->getAppPath() << std::endl;
-	bool useRecording = true;
+	bool useRecording = false;
 
 	XnStatus nRetVal = XN_STATUS_OK;
 	CinderOpenNISkeleton *skeleton = CINDERSKELETON;
@@ -483,6 +483,8 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	}
 	else if( event.getChar() == 'b' || event.getChar() == 'B' ){					// Autorotation
 		shouldDrawSkeleton = !shouldDrawSkeleton;
+	} else if( event.getChar() == 'F' ){											// Fullscreen
+		setFullScreen( ! isFullScreen() );
 	}
 
 
@@ -692,7 +694,7 @@ void QuadDistrustApp::update()
 			float rotAngle = ci::Rand::randFloat( (float)M_PI * 2 );
 
 			float x = ci::math<float>::cos( xAngle ) * radius;
-			float y = ci::Rand::randFloat() * 10;
+			float y = ci::Rand::randFloat() * 200;
 			float z = ci::math<float>::sin( zAngle ) * radius;
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
@@ -731,14 +733,17 @@ void QuadDistrustApp::draw()
 	ci::gl::setMatricesWindow( getWindowSize() );
 	ci::gl::disableDepthRead();
 	ci::gl::disableDepthWrite();
+	drawKinectDepth();
+	ci::gl::color( ci::ColorA(1.0f, 1.0f, 1.0f, 1.0f) );
+
 	ci::gl::enableAlphaBlending();
-//=	drawKinectDepth();
 
 	// Draw 3D
 	ci::gl::setMatrices( _mayaCam.getCamera() );
 	ci::gl::enableDepthRead();
 	ci::gl::enableDepthWrite();
 	ci::gl::disableAlphaBlending();
+
 
 
 
@@ -755,8 +760,8 @@ void QuadDistrustApp::draw()
 
 		_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
 		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
-//		GLfloat light_position[] = { x, y, z, dir };
-//		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
+		GLfloat light_position[] = { x, y, z, dir };
+		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
 
 
@@ -783,7 +788,7 @@ void QuadDistrustApp::draw()
 	_textureParticle.bind();
 	glEnable( GL_TEXTURE_2D );
 	size_t len = _forces.size();
-	float textureScale = 350.0f;
+	float textureScale = shouldDrawSkeleton ? 400.0f : 1600.0f;
 	for(int i = 0; i < len; ++i ) {
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
