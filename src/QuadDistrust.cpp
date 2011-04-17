@@ -76,8 +76,8 @@ struct IndexedQuad
 struct Force
 {
 	bool		isActive;
+	float		textureScale;
 	float		charge;
-	float		billboardSize;
 	ci::Vec3f	targetPosition;
 	ci::Vec3f	position;
 };
@@ -201,6 +201,7 @@ void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 	settings->setWindowSize( 1024, 768 );
 }
 
+#define defaultTextureScale 3100.0f
 
 void QuadDistrustApp::setup()
 {
@@ -221,6 +222,7 @@ void QuadDistrustApp::setup()
 		pos.y = fabs(pos.y);
 		_forces[i].isActive = true;
 		_forces[i].position = pos;
+		_forces[i].textureScale = defaultTextureScale;
 		_forces[i].targetPosition = pos;
 //		_forces[i].
 	}
@@ -588,8 +590,13 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	else if( event.getChar() == 'N' ){					// Autorotation
 		shouldApplyNoise =  !shouldApplyNoise;
 	}
-	else if( event.getChar() == 'b' || event.getChar() == 'B' ){					// Autorotation
-		shouldDrawSkeleton = !shouldDrawSkeleton;
+	else if( event.getChar() == 'b' ){					// Autorotation
+		for(int i = 0; i < _forces.size(); ++i ) {
+			if(ci::Rand::randFloat() < 0.5) {
+				_forces[i].textureScale = ci::Rand::randFloat(defaultTextureScale*0.5, defaultTextureScale*3 );
+			}
+		}
+
 	} else if( event.getChar() == 'F' ){											// Fullscreen
 		setFullScreen( ! isFullScreen() );
 	} else if ( event.getChar() == '0' ) {
@@ -642,7 +649,7 @@ void QuadDistrustApp::handleAutoRotation() {
 	if(!shouldAutoRotate)
 		return;
 
-	autoRotationMouse.x -= 0.4f;//autoRotationSpeed;
+	autoRotationMouse.x -= 0.5f;
 	_mayaCam.mouseDrag( autoRotationMouse, true, false, false );
 }
 void QuadDistrustApp::draw()
@@ -712,10 +719,10 @@ void QuadDistrustApp::draw()
 	glEnable( GL_TEXTURE_2D );
 	size_t len = _forces.size();
 	//billboardSize;
-	float textureScale = 3100;//shouldDrawSkeleton ? 400.0f : 3500.0f;
 	for(int i = 0; i < len; ++i ) {
 		if( !_forces[i].isActive ) continue;
-		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
+		_forces[i].textureScale -= (_forces[i].textureScale - defaultTextureScale) * 0.25;
+		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(_forces[i].textureScale, _forces[i].textureScale), 0.0f, mRight, mUp);
 	}
 //	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
@@ -829,7 +836,7 @@ void QuadDistrustApp::update()
 
 #else
 	size_t len = _forces.size();
-	float ease = 0.1f;
+	float ease = 0.15f;
 	for(int i = 0; i < len; ++i ) {
 		_forces[i].position -= (_forces[i].position - _forces[i].targetPosition) * ease;
 	}
@@ -875,7 +882,7 @@ void QuadDistrustApp::update()
 			}
 		}
 
-		if( shouldApplyNoise ) {
+//		if( shouldApplyNoise ) {
 			// Apply simplex noise
 			iq->position = vec[j];
 			noisePosition *= 0.0005f;
@@ -885,7 +892,7 @@ void QuadDistrustApp::update()
 			iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
 			iq->velocity.y += sinCosLUT._sin( nNoise ) * 0.5 * nZ; // Apply gravity
 			iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
-		}
+//		}
 		// Cap
 		iq->velocity.limit( maxVel );
 
