@@ -477,8 +477,7 @@ void QuadDistrustApp::setupMaterials()
 	_matUseEmissive		= true;
 
 
-	//GLfloat mat_ambient[]		= { 0.3, 0.1, 0.4, 1.0 };
-	//GLfloat mat_diffuse[]		= { 0.3, 0.5, 0.8, 1.0 };
+
 	_matNone			= ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 	_matAmbient			= ci::ColorA( 0.1f, 0.3f, 0.3f, 1.0f );
 	_matDiffuse			= ci::ColorA( 0.3f, 0.1f, 0.4f, 1.0f );
@@ -836,7 +835,7 @@ void QuadDistrustApp::update()
 
 #else
 	size_t len = _forces.size();
-	float ease = 0.15f;
+	float ease = 0.09f;
 	for(int i = 0; i < len; ++i ) {
 		_forces[i].position -= (_forces[i].position - _forces[i].targetPosition) * ease;
 	}
@@ -882,7 +881,6 @@ void QuadDistrustApp::update()
 			}
 		}
 
-//		if( shouldApplyNoise ) {
 			// Apply simplex noise
 			iq->position = vec[j];
 			noisePosition *= 0.0005f;
@@ -892,12 +890,14 @@ void QuadDistrustApp::update()
 			iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
 			iq->velocity.y += sinCosLUT._sin( nNoise ) * 0.5 * nZ; // Apply gravity
 			iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
-//		}
 		// Cap
 		iq->velocity.limit( maxVel );
 
 		// Apply velocity to positions
-		moveSpeed = iq->velocity;
+		if( shouldApplyNoise ) {
+			moveSpeed = iq->velocity;
+		}
+
 		moveSpeed.y += grav;
 		vec[j] += moveSpeed;
 		vec[j+1] += moveSpeed;
@@ -909,7 +909,7 @@ void QuadDistrustApp::update()
 		iq->velocity *= 0.98f;
 
 
-		if(iq->age > iq->lifespan || vec[j].y > iq->skyLimit)
+		if(iq->age > iq->lifespan /* || vec[j].y > iq->skyLimit */)
 		{
 			float radius = 2000;
 

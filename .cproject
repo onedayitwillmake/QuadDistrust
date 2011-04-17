@@ -33,7 +33,7 @@
 									<listOptionValue builtIn="false" value="OpenNI"/>
 								</option>
 								<option id="macosx.cpp.link.option.other.93030701" name="Other options (-Xlinker [option])" superClass="macosx.cpp.link.option.other" valueType="stringList">
-									<listOptionValue builtIn="false" value="${CINDER_PATH}/lib/libcinder_d.a"/>
+									<listOptionValue builtIn="false" value="${CINDER_PATH}/lib/libcinder.a"/>
 								</option>
 								<option id="macosx.cpp.link.option.userobjs.442770415" name="Other objects" superClass="macosx.cpp.link.option.userobjs"/>
 								<option id="macosx.cpp.link.option.flags.1225849360" name="Linker flags" superClass="macosx.cpp.link.option.flags" value="-arch i386 -framework Cocoa -framework OpenGL -framework Carbon -framework CoreVideo -framework QTKit -framework QuickTime -framework Accelerate -framework AudioToolbox -framework AudioUnit -framework CoreAudio" valueType="string"/>
@@ -56,7 +56,7 @@
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/QuadDistrust/thirdparty/ruiNoise/includes}&quot;"/>
 									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/QuadDistrust/includes/OpenNI}&quot;"/>
 								</option>
-								<option id="gnu.cpp.compiler.option.optimization.level.960717740" name="Optimization Level" superClass="gnu.cpp.compiler.option.optimization.level" value="gnu.cpp.compiler.optimization.level.none" valueType="enumerated"/>
+								<option id="gnu.cpp.compiler.option.optimization.level.960717740" name="Optimization Level" superClass="gnu.cpp.compiler.option.optimization.level" value="gnu.cpp.compiler.optimization.level.optimize" valueType="enumerated"/>
 								<option id="gnu.cpp.compiler.option.other.other.1735799906" name="Other flags" superClass="gnu.cpp.compiler.option.other.other" value="-c -fmessage-length=0 -arch i386" valueType="string"/>
 								<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.20011343" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 							</tool>
