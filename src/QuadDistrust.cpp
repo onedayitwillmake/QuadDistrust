@@ -13,6 +13,7 @@
 // System
 #include <float.h>
 #include <bitset>
+#include <stdlib.h>
 
 #include "cinder/Camera.h"
 #include "cinder/TriMesh.h"
@@ -76,7 +77,7 @@ struct Force
 {
 	bool		isActive;
 	float		charge;
-	ci::Vec3f	oldPosition;
+	ci::Vec3f	targetPosition;
 	ci::Vec3f	position;
 };
 
@@ -209,7 +210,7 @@ void QuadDistrustApp::setup()
 	_forces.resize( CINDERSKELETON->maxUsers * 2 );
 	for(int i = 0; i < _forces.size(); i++ ) {
 		_forces[i].position = ci::Vec3f::zero();
-		_forces[i].oldPosition = ci::Vec3f::zero();
+		_forces[i].targetPosition = ci::Vec3f::zero();
 	}
 #else
 	_forces.resize( maxForceCount );
@@ -218,7 +219,7 @@ void QuadDistrustApp::setup()
 		pos.y = fabs(pos.y);
 		_forces[i].isActive = true;
 		_forces[i].position = pos;
-		_forces[i].oldPosition = pos;
+		_forces[i].targetPosition = pos;
 	}
 #endif
 
@@ -588,7 +589,24 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 		shouldDrawSimpleGui = !shouldDrawSimpleGui;
 	}
 
+	if ( event.getChar() == '1' ) _forces.at( 0 ).isActive = !_forces.at( 0 ).isActive;
+	else if ( event.getChar() == '2' ) _forces.at( 1 ).isActive = !_forces.at( 1 ).isActive;
+	else if ( event.getChar() == '3' ) _forces.at( 2 ).isActive = !_forces.at( 2 ).isActive;
+	else if ( event.getChar() == '4' ) _forces.at( 3 ).isActive = !_forces.at( 3 ).isActive;
 
+
+	float moveRange = 2000.0f;
+#define randomTarget(__X__) { ci::Vec3f pos = ci::Rand::randVec3f() * moveRange; pos.y = fabs(pos.y); _forces.at(__X__).targetPosition = pos; }
+	if ( event.getChar() == '5' ) randomTarget(0);
+	if ( event.getChar() == '6' ) randomTarget(1);
+	if ( event.getChar() == '7' ) randomTarget(2);
+	if ( event.getChar() == '8' ) randomTarget(3);
+
+//	else if ( event.getChar() == '6' ) _forces.at( 1 ).isActive = !_forces.at( 1 ).isActive;
+//	else if ( event.getChar() == '7' ) _forces.at( 2 ).isActive = !_forces.at( 2 ).isActive;
+//	else if ( event.getChar() == '8' ) _forces.at( 3 ).isActive = !_forces.at( 3 ).isActive;
+
+// Toggle forces
 	// Screenshot
 	if( event.getChar() == 'P' ) {
 		std::ostringstream stringBuffer;
@@ -669,7 +687,7 @@ void QuadDistrustApp::draw()
 	_shader.uniform( "NumEnabledLights", 1 );
 		ci::gl::draw( *_particleMesh );
 //		float cubeSize = 25;
-//		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
+		ci::gl::drawCube( ci::Vec3f::zero(), ci::Vec3f(25.0f, 25.0f, 25.0f ));
 	_shader.unbind();
 	// END SHADER
 	_light->disable();
@@ -686,12 +704,12 @@ void QuadDistrustApp::draw()
 	_textureParticle.bind();
 	glEnable( GL_TEXTURE_2D );
 	size_t len = _forces.size();
-	float textureScale = shouldDrawSkeleton ? 400.0f : 3500.0f;
+	float textureScale = 3500;//shouldDrawSkeleton ? 400.0f : 3500.0f;
 	for(int i = 0; i < len; ++i ) {
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
 	}
-	//ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
+//	ci::gl::drawBillboard( ci::Vec3f::zero(), ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp); // Debug one at origin
 	glDisable( GL_TEXTURE_2D );
 //ci::ColorA( 0.0f, 0.0f, 0.0f, 1.0f );
 
@@ -718,7 +736,7 @@ void QuadDistrustApp::draw()
 void QuadDistrustApp::resize( ci::app::ResizeEvent event )
 {
 	ci::CameraPersp cam = _mayaCam.getCamera();
-	cam.setPerspective( 60,  event.getAspectRatio(), 1, 7000);
+	cam.setPerspective( 70,  event.getAspectRatio(), 1, 7000);
 	_mayaCam.setCurrentCam( cam );
 }
 
@@ -789,7 +807,7 @@ void QuadDistrustApp::update()
 		{
 			_forces[forceIterator+j].isActive = true;
 			_forces[forceIterator+j].charge = forceCharge[i+j];
-			_forces[forceIterator+j].oldPosition = _forces[i+j].position;
+//			_forces[forceIterator+j].targetPosition = _forces[i+j].position;
 			_forces[forceIterator+j].position = skeleton->_allUsers[i].projectedPositions[ jointsOfInterest[j] ];
 		}
 
@@ -799,21 +817,13 @@ void QuadDistrustApp::update()
 
 	}
 
-	_forces[i].position = (_forces[i].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND]) * ease;
+	_forces[i].position = (_forces[i].targetPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_LEFT_HAND]) * ease;
 
 #else
 	size_t len = _forces.size();
+	float ease = 0.3f;
 	for(int i = 0; i < len; ++i ) {
-
-//	_forces[i+1].position -= (_forces[i+1].oldPosition - skeleton->_allUsers[i].projectedPositions[XN_SKEL_RIGHT_HAND]) * ease;
-//	delta = (_forces[i+1].oldPosition - _forces[i+1].position) * ease;
-//			_forces[i+1].position -= delta;
-
-		if(ci::Rand::randFloat() < 0.01) {
-					ci::Vec3f pos = ci::Rand::randVec3f() * 2000;
-					pos.y = fabs(pos.y);
-					_forces[i].position = pos;
-				}
+		_forces[i].position -= (_forces[i].position - _forces[i].targetPosition) * ease;
 	}
 #endif
 
