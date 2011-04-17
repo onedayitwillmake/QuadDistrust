@@ -77,6 +77,7 @@ struct Force
 {
 	bool		isActive;
 	float		charge;
+	float		billboardSize;
 	ci::Vec3f	targetPosition;
 	ci::Vec3f	position;
 };
@@ -150,6 +151,7 @@ public:
 	float							mAngle;
 
 	bool							shouldApplyForces;
+	bool							shouldApplyNoise;
 	bool							shouldDrawSkeleton;
 	bool							shouldDrawSimpleGui;
 
@@ -220,8 +222,10 @@ void QuadDistrustApp::setup()
 		_forces[i].isActive = true;
 		_forces[i].position = pos;
 		_forces[i].targetPosition = pos;
+//		_forces[i].
 	}
 #endif
+
 
 	_forceStrength = 0.15f;
 	_forceMinDist = 200.0f;
@@ -245,7 +249,7 @@ void QuadDistrustApp::setup()
 	// Create floor plane
 	_planeMesh = new ci::TriMesh();
 	_planeMesh->clear();
-	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 10 );
+	ZoaDebugFunctions::createPlane( *_planeMesh, ci::Vec3f(0, -15, 0), 4000.0f, 4000.0f, 8, 8, 40 );
 
 	// Setup OpenGL
 	ci::gl::enableDepthWrite();
@@ -581,6 +585,9 @@ void QuadDistrustApp::keyDown( ci::app::KeyEvent event )
 	else if( event.getChar() == 'g' || event.getChar() == 'G' ){					// Autorotation
 		shouldApplyForces = !shouldApplyForces;
 	}
+	else if( event.getChar() == 'N' ){					// Autorotation
+		shouldApplyNoise =  !shouldApplyNoise;
+	}
 	else if( event.getChar() == 'b' || event.getChar() == 'B' ){					// Autorotation
 		shouldDrawSkeleton = !shouldDrawSkeleton;
 	} else if( event.getChar() == 'F' ){											// Fullscreen
@@ -635,7 +642,7 @@ void QuadDistrustApp::handleAutoRotation() {
 	if(!shouldAutoRotate)
 		return;
 
-	autoRotationMouse.x -= 0.5f;//autoRotationSpeed;
+	autoRotationMouse.x -= 0.4f;//autoRotationSpeed;
 	_mayaCam.mouseDrag( autoRotationMouse, true, false, false );
 }
 void QuadDistrustApp::draw()
@@ -704,7 +711,8 @@ void QuadDistrustApp::draw()
 	_textureParticle.bind();
 	glEnable( GL_TEXTURE_2D );
 	size_t len = _forces.size();
-	float textureScale = 3500;//shouldDrawSkeleton ? 400.0f : 3500.0f;
+	//billboardSize;
+	float textureScale = 3100;//shouldDrawSkeleton ? 400.0f : 3500.0f;
 	for(int i = 0; i < len; ++i ) {
 		if( !_forces[i].isActive ) continue;
 		ci::gl::drawBillboard( _forces[i].position, ci::Vec2f(textureScale, textureScale), 0.0f, mRight, mUp);
@@ -776,7 +784,7 @@ void QuadDistrustApp::update()
 	std::vector<ci::Vec3f>& normals = _particleMesh->getNormals();
 
 	int indexQuadIterator = 0;
-	float nZ = 1.0f;//getElapsedSeconds() * 0.005;
+	float nZ = 0.9f;//getElapsedSeconds() * 0.005;
 	mCounter += 0.01;
 
 
@@ -821,7 +829,7 @@ void QuadDistrustApp::update()
 
 #else
 	size_t len = _forces.size();
-	float ease = 0.3f;
+	float ease = 0.1f;
 	for(int i = 0; i < len; ++i ) {
 		_forces[i].position -= (_forces[i].position - _forces[i].targetPosition) * ease;
 	}
@@ -866,17 +874,18 @@ void QuadDistrustApp::update()
 				}
 			}
 		}
-		// Apply simplex noise
-		iq->position = vec[j];
-		noisePosition *= 0.0005f;
-		float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
-		nNoise *= TWO_PI*2;
 
-		iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
-		iq->velocity.y += sinCosLUT._sin( nNoise ) * 0.5 * nZ; // Apply gravity
-		iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
+		if( shouldApplyNoise ) {
+			// Apply simplex noise
+			iq->position = vec[j];
+			noisePosition *= 0.0005f;
+			float nNoise = _simplexNoise->noise( noisePosition.x, noisePosition.y, noisePosition.z, mCounter);
+			nNoise *= TWO_PI*2;
 
-
+			iq->velocity.x += cosf(nNoise) * maxSpeed * nZ;
+			iq->velocity.y += sinCosLUT._sin( nNoise ) * 0.5 * nZ; // Apply gravity
+			iq->velocity.z += sinf(nNoise) * maxSpeed * nZ;
+		}
 		// Cap
 		iq->velocity.limit( maxVel );
 
@@ -893,7 +902,7 @@ void QuadDistrustApp::update()
 		iq->velocity *= 0.98f;
 
 
-		if(iq->age > iq->lifespan/* || vec[j].y > iq->skyLimit*/)
+		if(iq->age > iq->lifespan || vec[j].y > iq->skyLimit)
 		{
 			float radius = 2000;
 
