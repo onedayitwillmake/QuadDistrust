@@ -1,0 +1,1 @@
+This project uses the OpenNI library to track a human skeleton, and uses that skeleton to modify a virtual interactive 3d space which is rendered using OpenGL the application is written in C++ using the Cinder creative code framework
