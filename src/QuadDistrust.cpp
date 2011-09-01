@@ -39,7 +39,7 @@
 #include "cinder/Perlin.h"
 #include "SimpleGUI/include/SimpleGUI.h"
 
-//#define __USE_KINECT 1
+#define __USE_KINECT 1
 #ifdef  __USE_KINECT
 #include "CinderOpenNI.h"
 #endif
@@ -205,6 +205,7 @@ void QuadDistrustApp::prepareSettings( ci::app::AppBasic::Settings *settings )
 
 void QuadDistrustApp::setup()
 {
+//	std::cout << getcwd(temp, maxPathLenth) << std::endl;
 	_light = new ci::gl::Light( ci::gl::Light::DIRECTIONAL, 0);
 //	_light->setAttenuation( 1.0, 0.0014, 0.000007); // http://www.ogre3d.org/tikiwiki/-Point+Light+Attenuation
 
@@ -264,7 +265,7 @@ void QuadDistrustApp::setup()
 	shouldDrawSkeleton = true;
 
 	setupGui();
-	getFocus();
+//	getFocus();
 }
 
 void QuadDistrustApp::setupShader()
@@ -328,8 +329,8 @@ glEnd();
  */
 void QuadDistrustApp::setupQuadSprites()
 {
-	_quadMaxSize = 8.0f;
-	_quadMaxDistortion = 2.0f;
+	_quadMaxSize = 4.0f;
+	_quadMaxDistortion = 1.0f;
 
 	maxSpeed = 1.0f;
 	grav = 0.04;
@@ -532,7 +533,7 @@ void QuadDistrustApp::drawKinectDepth()
 	gl::draw( gl::Texture( depthSurface ), depthArea );
 
 	// Debug draw
-	skeleton->debugDrawLabels( Font( "Arial", 10 ), depthArea );
+	skeleton->debugDrawLabels( Font( "Helvetica", 10 ), depthArea );
 #endif
 
 }
@@ -688,7 +689,7 @@ void QuadDistrustApp::draw()
 		ci::Vec3f camEye = _mayaCam.getCamera().getEyePoint();
 
 		_light->lookAt( ci::Vec3f(x, y, z), ci::Vec3f(0, y, 0) );
-		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.15 ) ) * 0.889f + 0.1f;
+		float dir = ci::math<float>::abs( ci::math<float>::sin( getElapsedSeconds() * 0.015 ) ) * 0.889f + 0.1f;
 		GLfloat light_position[] = { x, y, z, dir };
 		glLightfv( GL_LIGHT0, GL_POSITION, light_position );
 	}
@@ -928,7 +929,7 @@ void QuadDistrustApp::update()
 			ci::Vec3f pos = ci::Vec3f( x, y, z );
 
 			// Modify quad vertices to place at position
-			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], _quadMaxSize, _quadMaxDistortion, rotAngle );
+			ZoaDebugFunctions::createQuadAtPosition( pos, vec[j], vec[j+1], vec[j+2], vec[j+3], ci::Rand::randFloat(_quadMaxSize/2, _quadMaxSize*4), _quadMaxDistortion, rotAngle );
 
 			// Fix normal for new quad position
 			ci::Vec3f e0 = vec[j+2] - vec[j];

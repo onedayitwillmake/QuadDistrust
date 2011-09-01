@@ -19,40 +19,63 @@
 *  along with OpenNI. If not, see <http://www.gnu.org/licenses/>.           *
 *                                                                           *
 ****************************************************************************/
-#ifndef _XN_VERSION_H_
-#define _XN_VERSION_H_
+#ifndef __XN_ALGORITHMS_H__
+#define __XN_ALGORITHMS_H__
 
 //---------------------------------------------------------------------------
 // Includes
 //---------------------------------------------------------------------------
-#include "XnPlatform.h"
+#include <XnPlatform.h>
 
 //---------------------------------------------------------------------------
-// Defines
+// Types
 //---------------------------------------------------------------------------
-/** OpenNI major version. */ 
-#define XN_MAJOR_VERSION 1
-/** OpenNI minor version. */ 
-#define XN_MINOR_VERSION 3
-/** OpenNI maintenance version. */ 
-#define XN_MAINTENANCE_VERSION 2
-/** OpenNI build version. */ 
-#define XN_BUILD_VERSION 3
+template<class T>
+XnBool DefaultComparer(const T& arg1, const T& arg2)
+{
+	return arg1 < arg2;
+}
 
-/** OpenNI version (in brief string format): "Major.Minor.Maintenance (Build)" */ 
-#define XN_BRIEF_VERSION_STRING \
-	XN_STRINGIFY(XN_MAJOR_VERSION) "." \
-	XN_STRINGIFY(XN_MINOR_VERSION) "." \
-	XN_STRINGIFY(XN_MAINTENANCE_VERSION) \
-	" (Build " XN_STRINGIFY(XN_BUILD_VERSION) ")"
+class XnAlgorithms
+{
+public:
+	template<class T, class Comparer>
+	static void BubbleSort(T elements[], XnUInt32 nCount, Comparer comp)
+	{
+		XnUInt32 n = nCount;
+		XnBool bSwapped;
+		T temp;
 
-/** OpenNI version (in numeric format): (OpenNI major version * 100000000 + OpenNI minor version * 1000000 + OpenNI maintenance version * 10000 + OpenNI build version). */
-#define XN_VERSION (XN_MAJOR_VERSION*100000000 + XN_MINOR_VERSION*1000000 + XN_MAINTENANCE_VERSION*10000 + XN_BUILD_VERSION)
+		if (nCount == 0)
+			return;
 
-/** OpenNI version (in string format): "Major.Minor.Maintenance.Build-Platform (MMM DD YYYY HH:MM:SS)". */ 
-#define XN_VERSION_STRING \
-		XN_BRIEF_VERSION_STRING  "-" \
-		XN_PLATFORM_STRING " (" XN_TIMESTAMP ")"
+		do
+		{
+			bSwapped = FALSE;
+			for (XnUInt32 i = 0; i < n - 1; ++i)
+			{
+				if (!comp(elements[i], elements[i+1]))
+				{
+					// swap
+					temp = elements[i];
+					elements[i] = elements[i+1];
+					elements[i+1] = temp;
 
-#endif //_XN_VERSION_H_
+					bSwapped = TRUE;
+				}
+			}
 
+			n -= 1;
+
+		} while (bSwapped);
+	}
+
+	template<class T>
+	static void BubbleSort(T elements[], XnUInt32 nCount)
+	{
+		BubbleSort(elements, nCount, DefaultComparer);
+	}
+
+};
+
+#endif // __XN_ALGORITHMS_H__

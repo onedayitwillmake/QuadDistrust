@@ -146,7 +146,7 @@ void ZoaDebugFunctions::addQuadToMesh( ci::TriMesh& mesh, const ci::Vec3f& P0, c
 void ZoaDebugFunctions::calculateTriMeshNormals( ci::TriMesh &mesh )
 {
 	const std::vector<ci::Vec3f>& vertices = mesh.getVertices();
-	const std::vector<size_t>& indices = mesh.getIndices();
+	const std::vector<uint32_t>& indices = mesh.getIndices();
 
 	// remove all current normals
 	std::vector<ci::Vec3f>& normals = mesh.getNormals();

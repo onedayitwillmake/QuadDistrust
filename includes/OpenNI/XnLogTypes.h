@@ -19,40 +19,62 @@
 *  along with OpenNI. If not, see <http://www.gnu.org/licenses/>.           *
 *                                                                           *
 ****************************************************************************/
-#ifndef _XN_VERSION_H_
-#define _XN_VERSION_H_
+#ifndef __XN_LOG_TYPES_H__
+#define __XN_LOG_TYPES_H__
 
 //---------------------------------------------------------------------------
 // Includes
 //---------------------------------------------------------------------------
 #include "XnPlatform.h"
+#include "XnTypes.h"
 
 //---------------------------------------------------------------------------
 // Defines
 //---------------------------------------------------------------------------
-/** OpenNI major version. */ 
-#define XN_MAJOR_VERSION 1
-/** OpenNI minor version. */ 
-#define XN_MINOR_VERSION 3
-/** OpenNI maintenance version. */ 
-#define XN_MAINTENANCE_VERSION 2
-/** OpenNI build version. */ 
-#define XN_BUILD_VERSION 3
+#define XN_LOG_DIR_NAME			"Log"
+#define XN_LOG_MASKS_STRING_LEN	600
+#define XN_MASK_LOG				"Log"
+#define XN_LOG_MASK_ALL			"ALL"
 
-/** OpenNI version (in brief string format): "Major.Minor.Maintenance (Build)" */ 
-#define XN_BRIEF_VERSION_STRING \
-	XN_STRINGIFY(XN_MAJOR_VERSION) "." \
-	XN_STRINGIFY(XN_MINOR_VERSION) "." \
-	XN_STRINGIFY(XN_MAINTENANCE_VERSION) \
-	" (Build " XN_STRINGIFY(XN_BUILD_VERSION) ")"
+//---------------------------------------------------------------------------
+// Enums
+//---------------------------------------------------------------------------
+typedef enum XnLogSeverity
+{
+	XN_LOG_VERBOSE,
+	XN_LOG_INFO,
+	XN_LOG_WARNING,
+	XN_LOG_ERROR
+} XnLogSeverity;
 
-/** OpenNI version (in numeric format): (OpenNI major version * 100000000 + OpenNI minor version * 1000000 + OpenNI maintenance version * 10000 + OpenNI build version). */
-#define XN_VERSION (XN_MAJOR_VERSION*100000000 + XN_MINOR_VERSION*1000000 + XN_MAINTENANCE_VERSION*10000 + XN_BUILD_VERSION)
+typedef enum XnLogFilteringType
+{
+	XN_LOG_WRITE_NONE,
+	XN_LOG_WRITE_ALL,
+	XN_LOG_WRITE_MASKS
+} XnLogFilteringType;
 
-/** OpenNI version (in string format): "Major.Minor.Maintenance.Build-Platform (MMM DD YYYY HH:MM:SS)". */ 
-#define XN_VERSION_STRING \
-		XN_BRIEF_VERSION_STRING  "-" \
-		XN_PLATFORM_STRING " (" XN_TIMESTAMP ")"
+//---------------------------------------------------------------------------
+// Structs
+//---------------------------------------------------------------------------
+typedef struct XnLogEntry
+{
+	XnUInt64 nTimestamp;
+	XnLogSeverity nSeverity;
+	const XnChar* strSeverity;
+	const XnChar* strMask;
+	const XnChar* strMessage;
+	const XnChar* strFile;
+	XnUInt32 nLine;
+} XnLogEntry;
 
-#endif //_XN_VERSION_H_
+typedef struct XnLogWriter
+{
+	void* pCookie;
+	void (XN_CALLBACK_TYPE* WriteEntry)(const XnLogEntry* pEntry, void* pCookie);
+	void (XN_CALLBACK_TYPE* WriteUnformatted)(const XnChar* strMessage, void* pCookie);
+	void (XN_CALLBACK_TYPE* OnConfigurationChanged)(void* pCookie);
+	void (XN_CALLBACK_TYPE* OnClosing)(void* pCookie);
+} XnLogWriter;
 
+#endif // __XN_LOG_TYPES_H__
