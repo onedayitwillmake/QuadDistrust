@@ -10,6 +10,7 @@
 #ifndef ZOADEBUGFUNCTIONS_H_
 #define ZOADEBUGFUNCTIONS_H_
 
+#include "OpenGL.framework/Versions/A/Headers/gl.h"
 #include "cinder/TriMesh.h"
 #include "cinder/Camera.h"
 #include "cinder/gl/gl.h"
